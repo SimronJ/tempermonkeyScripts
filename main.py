@@ -157,6 +157,7 @@ class TLOPOBot:
         self.window = TLOPOWindow()
         self.constants = WindowsConstants()
         self.loot_detector = LootDetector()
+        self.cycle_count = 0  # Initialize cycle counter
         
     def run(self, force_calibrate: bool = False):
         """Main bot loop"""
@@ -190,7 +191,14 @@ class TLOPOBot:
 
     def execute_key_sequence(self, hwnd: int):
         """Execute the predefined key sequence"""
-        # Check if the boss is visible and attack if so
+        # Always start by pressing Ctrl
+        logging.info("Pressing Ctrl to start the cycle...")
+        self.window.post_key(hwnd, self.constants.VK_CONTROL, True)  # Press Ctrl
+        time.sleep(0.1)  # Brief hold
+        self.window.post_key(hwnd, self.constants.VK_CONTROL, False)  # Release Ctrl
+        time.sleep(1)  # Wait 1 second before checking for the boss
+
+        # Check if the boss is visible
         if self.loot_detector.is_boss_visible():
             logging.info("Boss detected! Attacking...")
             
@@ -200,29 +208,38 @@ class TLOPOBot:
                 time.sleep(0.1)  # Brief hold
                 self.window.post_key(hwnd, self.constants.VK_CONTROL, False)  # Release Ctrl
                 time.sleep(1)  # Wait 1 second before the next press
-
-            # Press Shift after Ctrl presses
-            logging.info("Pressing Shift...")
-            self.window.post_key(hwnd, self.constants.VK_SHIFT, True)  # Press Shift
-            time.sleep(0.1)  # Brief hold
-            self.window.post_key(hwnd, self.constants.VK_SHIFT, False)  # Release Shift
-            time.sleep(1.2)  # Wait 1.2 seconds before next action
-
-            # Check if the loot chest is open
-            if self.loot_detector.is_loot_window_open():
-                logging.info("Loot chest is open, waiting for 5 seconds...")
-                time.sleep(5)  # Wait for 5 seconds before pressing Esc
-                logging.info("Pressing Esc...")
-                self.window.post_key(hwnd, self.constants.VK_ESCAPE, True)  # Press Esc
-                time.sleep(0.1)  # Brief hold
-                self.window.post_key(hwnd, self.constants.VK_ESCAPE, False)  # Release Esc
-            else:
-                logging.info("Loot chest is not open, continuing cycle.")
         else:
-            logging.info("No boss detected, continuing cycle")
+            logging.info("No boss detected, continuing cycle.")
 
-        # Optional delay before next iteration
-        time.sleep(1.0)
+        # Press Shift after Ctrl presses
+        logging.info("Pressing Shift...")
+        self.window.post_key(hwnd, self.constants.VK_SHIFT, True)  # Press Shift
+        time.sleep(0.1)  # Brief hold
+        self.window.post_key(hwnd, self.constants.VK_SHIFT, False)  # Release Shift
+        time.sleep(1)  # Wait 1 second before checking loot
+
+        # Check if the loot chest is open
+        if self.loot_detector.is_loot_window_open():
+            logging.info("Loot chest is open, waiting for 5 seconds...")
+            time.sleep(5)  # Wait for 5 seconds before pressing Esc
+        else:
+            logging.info("Loot chest is not open, continuing cycle.")
+
+        # Increment cycle count
+        self.cycle_count += 1
+        logging.info(f"Cycle count: {self.cycle_count}")
+
+        # Check if the cycle count has reached 3
+        if self.cycle_count >= 3:
+            logging.info("Pressing Esc after 3 cycles...")
+            self.window.post_key(hwnd, self.constants.VK_ESCAPE, True)  # Press Esc
+            time.sleep(0.1)  # Brief hold
+            self.window.post_key(hwnd, self.constants.VK_ESCAPE, False)  # Release Esc
+            self.cycle_count = 0  # Reset cycle count
+
+        # Wait for 3 seconds before the next cycle
+        logging.info("Waiting for 3 seconds before the next cycle...")
+        time.sleep(3)
 
 class RegionSelector:
     """GUI tool for selecting screen regions from an image"""
@@ -451,14 +468,41 @@ class LootDetector:
         return is_open
 
     def is_boss_visible(self) -> bool:
-        """Check if the boss is visible based on the configured region and brightness."""
+        """Check if the boss is visible based on the configured region and shape detection."""
         # Capture the region where the boss is expected to be
         boss_region_image = ImageGrab.grab(bbox=self.boss_detection_region)
-        avg_brightness, bright_ratio = self.analyze_image_brightness(boss_region_image)
+        boss_region_gray = cv2.cvtColor(np.array(boss_region_image), cv2.COLOR_RGB2GRAY)
 
-        # Check if the average brightness and bright pixel ratio exceed the thresholds
-        is_visible = avg_brightness > self.boss_brightness_threshold and bright_ratio > self.boss_min_bright_pixels
-        logging.info(f"Boss visible status: {is_visible}")
+        # Preprocess the image
+        blurred_image = cv2.GaussianBlur(boss_region_gray, (5, 5), 0)
+        edges = cv2.Canny(blurred_image, 50, 150)
+
+        # Find contours
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Initialize flags for shape detection
+        circle_detected = False
+        rectangle_detected = False
+
+        for contour in contours:
+            # Approximate the contour to reduce the number of points
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+
+            # Check for circles (using the number of vertices)
+            if len(approx) > 8:  # A circle will have many vertices
+                circle_detected = True
+
+            # Check for rectangles (4 vertices)
+            elif len(approx) == 4:
+                rectangle_detected = True
+
+        # Log the detection results
+        logging.info(f"Circle detected: {circle_detected}, Rectangle detected: {rectangle_detected}")
+
+        # Decision logic based on detected shapes
+        is_visible = circle_detected and rectangle_detected
+
         return is_visible
 
 class Config:
