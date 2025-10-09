@@ -1,9 +1,39 @@
-2025-10-09 17:59:08,903 - INFO - Initializing LootDetector
-2025-10-09 17:59:08,911 - INFO - Loading configuration from bot_config.json
-2025-10-09 17:59:08,911 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
-2025-10-09 17:59:08,911 - INFO - Screenshot directory: screenshots
-2025-10-09 17:59:08,911 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
-2025-10-09 17:59:08,911 - INFO - Starting calibration process
-2025-10-09 17:59:08,912 - INFO - Using existing screenshot for both visible.
-2025-10-09 17:59:08,912 - INFO - Using existing screenshot for none visible.
-2025-10-09 17:59:08,979 - INFO - Starting region selection from image...
+2025-10-09 18:16:50,392 - INFO - Initializing LootDetector
+2025-10-09 18:16:50,392 - INFO - Loading configuration from bot_config.json
+2025-10-09 18:16:50,393 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 18:16:50,393 - INFO - Screenshot directory: screenshots
+2025-10-09 18:16:50,393 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 18:16:50,393 - INFO - Starting calibration process
+2025-10-09 18:16:50,394 - INFO - Using existing screenshot for both visible.
+2025-10-09 18:16:50,394 - INFO - Using existing screenshot for none visible.
+2025-10-09 18:16:50,459 - INFO - Starting region selection from image...
+2025-10-09 18:16:55,913 - INFO - Region selected: (519, 325, 1201, 763)
+2025-10-09 18:16:55,929 - INFO - Returning selected region: (519, 325, 1201, 763)
+2025-10-09 18:16:55,930 - INFO - Starting region selection from image...
+2025-10-09 18:17:12,674 - INFO - Region selected: (1147, 128, 1524, 161)
+2025-10-09 18:17:12,686 - INFO - Returning selected region: (1147, 128, 1524, 161)
+2025-10-09 18:17:12,823 - INFO - Loot and boss visible values - brightness: 54.34428982204861, ratio: 0.29669352213541667
+2025-10-09 18:17:12,916 - INFO - Neither visible values - brightness: 45.46447292751736, ratio: 0.22908854166666667
+2025-10-09 18:17:12,916 - INFO - Calibrated loot thresholds - Brightness: 49.90, Bright pixel ratio: 0.26
+2025-10-09 18:17:13,013 - INFO - Boss visible values - brightness: 54.34428982204861, ratio: 0.29669352213541667
+2025-10-09 18:17:13,099 - INFO - Neither visible values - brightness: 45.46447292751736, ratio: 0.22908854166666667
+2025-10-09 18:17:13,099 - INFO - Calibrated boss thresholds - Brightness: 49.90, Bright pixel ratio: 0.23
+2025-10-09 18:17:13,101 - INFO - Configuration saved.
+2025-10-09 18:17:13,640 - INFO - Starting iteration #1
+2025-10-09 18:17:13,691 - INFO - Boss visible status: True
+2025-10-09 18:17:13,691 - INFO - Boss detected! Attacking...
+2025-10-09 18:17:19,194 - INFO - Pressing Shift...
+2025-10-09 18:17:20,549 - INFO - Loot window open status: True
+2025-10-09 18:17:20,550 - INFO - Loot chest is open, waiting for 5 seconds...
+2025-10-09 18:17:25,550 - INFO - Pressing Esc...
+2025-10-09 18:17:27,327 - INFO - Starting iteration #2
+2025-10-09 18:17:27,374 - INFO - Boss visible status: True
+2025-10-09 18:17:27,374 - INFO - Boss detected! Attacking...
+2025-10-09 18:17:32,880 - INFO - Pressing Shift...
+2025-10-09 18:17:34,232 - INFO - Loot window open status: True
+2025-10-09 18:17:34,232 - INFO - Loot chest is open, waiting for 5 seconds...
+2025-10-09 18:17:39,233 - INFO - Pressing Esc...
+2025-10-09 18:17:40,767 - INFO - Starting iteration #3
+2025-10-09 18:17:40,807 - INFO - Boss visible status: True
+2025-10-09 18:17:40,807 - INFO - Boss detected! Attacking...
+2025-10-09 18:17:43,595 - INFO - Bot stopped by user

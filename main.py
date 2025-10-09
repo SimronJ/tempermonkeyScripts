@@ -190,37 +190,39 @@ class TLOPOBot:
 
     def execute_key_sequence(self, hwnd: int):
         """Execute the predefined key sequence"""
-        # Press and release CTRL every 1 second (do this 5 times)
-        for i in range(5):
-            logging.info(f"CTRL press/release #{i+1}")
-            self.window.post_key(hwnd, self.constants.VK_CONTROL, True)
+        # Check if the boss is visible and attack if so
+        if self.loot_detector.is_boss_visible():
+            logging.info("Boss detected! Attacking...")
+            
+            # Press Ctrl 5 times with 1-second intervals
+            for _ in range(5):
+                self.window.post_key(hwnd, self.constants.VK_CONTROL, True)  # Press Ctrl
+                time.sleep(0.1)  # Brief hold
+                self.window.post_key(hwnd, self.constants.VK_CONTROL, False)  # Release Ctrl
+                time.sleep(1)  # Wait 1 second before the next press
+
+            # Press Shift after Ctrl presses
+            logging.info("Pressing Shift...")
+            self.window.post_key(hwnd, self.constants.VK_SHIFT, True)  # Press Shift
             time.sleep(0.1)  # Brief hold
-            self.window.post_key(hwnd, self.constants.VK_CONTROL, False)
-            time.sleep(1.0)  # Wait 1 second before next press
+            self.window.post_key(hwnd, self.constants.VK_SHIFT, False)  # Release Shift
+            time.sleep(1.2)  # Wait 1.2 seconds before next action
 
-        # Press SHIFT more naturally (brief press)
-        logging.info("Pressing SHIFT")
-        self.window.post_key(hwnd, self.constants.VK_SHIFT, True)
-        time.sleep(1)  # Brief hold
-        self.window.post_key(hwnd, self.constants.VK_SHIFT, False)
-
-        # Check if loot window is open
-        if self.loot_detector.is_loot_window_open():
-            logging.info("Loot window detected! Waiting 5 seconds before pressing ESC")
-            time.sleep(5.0)  # Wait 5 seconds if the loot window is open
-            logging.info("Pressing ESC to close the loot window")
-            # Press ESC to close the loot window
-            self.window.post_key(hwnd, self.constants.VK_ESCAPE, True)
-            time.sleep(0.1)
-            self.window.post_key(hwnd, self.constants.VK_ESCAPE, False)
-            return True
+            # Check if the loot chest is open
+            if self.loot_detector.is_loot_window_open():
+                logging.info("Loot chest is open, waiting for 5 seconds...")
+                time.sleep(5)  # Wait for 5 seconds before pressing Esc
+                logging.info("Pressing Esc...")
+                self.window.post_key(hwnd, self.constants.VK_ESCAPE, True)  # Press Esc
+                time.sleep(0.1)  # Brief hold
+                self.window.post_key(hwnd, self.constants.VK_ESCAPE, False)  # Release Esc
+            else:
+                logging.info("Loot chest is not open, continuing cycle.")
         else:
-            logging.info("No loot window detected, continuing cycle")
-            return False
+            logging.info("No boss detected, continuing cycle")
 
         # Optional delay before next iteration
         time.sleep(1.0)
-        return False
 
 class RegionSelector:
     """GUI tool for selecting screen regions from an image"""
@@ -324,12 +326,17 @@ class LootDetector:
         """Let user select the region to monitor for loot and boss detection"""
         logging.info("Starting calibration process")
 
+        # Check if regions are already defined
+        if self.region and self.boss_detection_region and not force:
+            logging.info("Using existing regions from configuration.")
+            return  # Skip calibration if regions are already defined
+
         both_visible_image_path = os.path.join(self.screenshot_dir, "both_visible.png")
         none_visible_image_path = os.path.join(self.screenshot_dir, "none_visible.png")
 
         # Check if screenshots already exist
         if not os.path.exists(both_visible_image_path):
-            self.prompt_user_for_screenshot("Please ensure both the loot chest and boss are visible, then press OK.")
+            self.prompt_user_for_screenshot("Please ensure both the loot chest and boss is visible, then press OK.")
             self.take_screenshot("both_visible.png")  # Take screenshot for both visible
         else:
             logging.info("Using existing screenshot for both visible.")
@@ -417,15 +424,19 @@ class LootDetector:
     def _save_config(self):
         """Save the current configuration to a file."""
         config_data = {
-            'region': self.region,
-            'boss_detection_region': self.boss_detection_region,
-            'brightness_threshold': self.brightness_threshold,
-            'min_bright_pixels': self.min_bright_pixels,
-            'boss_brightness_threshold': self.boss_brightness_threshold,
-            'boss_min_bright_pixels': self.boss_min_bright_pixels,
+            'loot': {
+                'region': self.region,
+                'brightness_threshold': self.brightness_threshold,
+                'min_bright_pixels': self.min_bright_pixels,
+            },
+            'boss': {
+                'region': self.boss_detection_region,
+                'brightness_threshold': self.boss_brightness_threshold,
+                'min_bright_pixels': self.boss_min_bright_pixels,
+            }
         }
-        with open('config.json', 'w') as config_file:
-            json.dump(config_data, config_file)
+        with open('bot_config.json', 'w') as config_file:
+            json.dump(config_data, config_file, indent=4)
         logging.info("Configuration saved.")
 
     def is_loot_window_open(self) -> bool:
@@ -438,6 +449,17 @@ class LootDetector:
         is_open = avg_brightness > self.brightness_threshold and bright_ratio > self.min_bright_pixels
         logging.info(f"Loot window open status: {is_open}")
         return is_open
+
+    def is_boss_visible(self) -> bool:
+        """Check if the boss is visible based on the configured region and brightness."""
+        # Capture the region where the boss is expected to be
+        boss_region_image = ImageGrab.grab(bbox=self.boss_detection_region)
+        avg_brightness, bright_ratio = self.analyze_image_brightness(boss_region_image)
+
+        # Check if the average brightness and bright pixel ratio exceed the thresholds
+        is_visible = avg_brightness > self.boss_brightness_threshold and bright_ratio > self.boss_min_bright_pixels
+        logging.info(f"Boss visible status: {is_visible}")
+        return is_visible
 
 class Config:
     """Configuration manager for bot settings"""

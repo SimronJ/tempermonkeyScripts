@@ -1,12 +1,22 @@
 {
     "loot": {
-        "region": [531, 329, 1205, 764],
-        "brightness_threshold": 92.07,
-        "min_bright_pixels": 0.41
+        "region": [
+            519,
+            325,
+            1201,
+            763
+        ],
+        "brightness_threshold": 49.904381374782986,
+        "min_bright_pixels": 0.2628910319010417
     },
     "boss": {
-        "region": null,
-        "brightness_threshold": 150,
-        "min_bright_pixels": 0.4
+        "region": [
+            1147,
+            128,
+            1524,
+            161
+        ],
+        "brightness_threshold": 49.904381374782986,
+        "min_bright_pixels": 0.22908854166666667
     }
 }
