@@ -10,6 +10,7 @@ from PIL import ImageTk, ImageGrab
 import json
 from pathlib import Path
 import argparse
+import os
 
 try:
     import psutil
@@ -31,6 +32,29 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+LOG_FILE = 'tlopo_bot.log'
+MAX_LINES = 10000
+
+def clear_log_file():
+    """Clear the log file at the start of each run."""
+    with open(LOG_FILE, 'w') as f:
+        f.write('')  # Clear the file
+
+def manage_log_file():
+    """Manage the log file to ensure it does not exceed MAX_LINES."""
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE, 'r') as f:
+            lines = f.readlines()
+        
+        if len(lines) >= MAX_LINES:
+            with open(LOG_FILE, 'w') as f:
+                f.writelines(lines[-MAX_LINES:])  # Keep the last MAX_LINES
+
+def log_message(message):
+    """Log a message to the log file."""
+    with open(LOG_FILE, 'a') as f:
+        f.write(message + '\n')
 
 @dataclass
 class WindowsConstants:
@@ -128,6 +152,8 @@ class TLOPOWindow:
 class TLOPOBot:
     """Main bot logic"""
     def __init__(self):
+        clear_log_file()  # Clear log at the start
+        manage_log_file()  # Manage log file size
         self.window = TLOPOWindow()
         self.constants = WindowsConstants()
         self.loot_detector = LootDetector()
