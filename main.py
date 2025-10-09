@@ -6,7 +6,7 @@ from typing import List, Optional, Callable
 from dataclasses import dataclass
 import tkinter as tk
 from tkinter import messagebox 
-from PIL import ImageTk, ImageGrab
+from PIL import ImageTk, ImageGrab, Image
 import json
 from pathlib import Path
 import argparse
@@ -223,7 +223,7 @@ class TLOPOBot:
         return False
 
 class RegionSelector:
-    """GUI tool for selecting screen regions"""
+    """GUI tool for selecting screen regions from an image"""
     def __init__(self):
         self.root = tk.Tk()
         self.root.withdraw()  # Hide main window
@@ -234,27 +234,18 @@ class RegionSelector:
         self.end_y = None
         self.selected_region = None
 
-    def get_region(self, message="Select the region to monitor"):
-        logging.info("Starting region selection...")
-        
-        messagebox.showinfo(
-            "Region Selection", 
-            message + "\n\n"
-            "1. Click and drag to select the region\n"
-            "2. Release mouse button to confirm\n"
-            "3. Window will close automatically"
-        )
-        
+    def get_region_from_image(self, image_path: str, message: str):
+        """Allow the user to select a region from the specified image."""
+        logging.info("Starting region selection from image...")
+
+        messagebox.showinfo("Region Selection", message)
+        image = Image.open(image_path)
+        self.photo = ImageTk.PhotoImage(image)
+
         window = tk.Toplevel(self.root)
-        window.attributes('-fullscreen', True, '-alpha', 0.3)
-        window.configure(bg='grey')
-
-        screenshot = ImageGrab.grab()
-        photo = ImageTk.PhotoImage(screenshot)
-
-        canvas = tk.Canvas(window, width=screenshot.width, height=screenshot.height)
+        canvas = tk.Canvas(window, width=image.width, height=image.height)
         canvas.pack(fill='both', expand=True)
-        canvas.create_image(0, 0, image=photo, anchor='nw')
+        canvas.create_image(0, 0, image=self.photo, anchor='nw')
 
         selection_rect = None
 
@@ -291,7 +282,7 @@ class RegionSelector:
         canvas.bind('<ButtonRelease-1>', on_mouse_up)
 
         window.mainloop()
-        
+
         if self.selected_region:
             logging.info(f"Returning selected region: {self.selected_region}")
             return self.selected_region
@@ -303,146 +294,150 @@ class LootDetector:
     def __init__(self):
         logging.info("Initializing LootDetector")
         self.config = Config()
-        self.region = self.config.data.get('region')
-        self.brightness_threshold = self.config.data.get('brightness_threshold', 150)
-        self.min_bright_pixels = self.config.data.get('min_bright_pixels', 0.4)
-        logging.info(f"Loaded config: region={self.region}, "
-                    f"brightness_threshold={self.brightness_threshold}, "
-                    f"min_bright_pixels={self.min_bright_pixels}")
+        
+        # Load loot configuration
+        self.region = self.config.data.get('loot', {}).get('region')
+        self.brightness_threshold = self.config.data.get('loot', {}).get('brightness_threshold', 150)
+        self.min_bright_pixels = self.config.data.get('loot', {}).get('min_bright_pixels', 0.4)
+
+        # Load boss configuration
+        self.boss_detection_region = self.config.data.get('boss', {}).get('region')
+        self.boss_brightness_threshold = self.config.data.get('boss', {}).get('brightness_threshold', 150)
+        self.boss_min_bright_pixels = self.config.data.get('boss', {}).get('min_bright_pixels', 0.4)
+
+        self.screenshot_dir = "screenshots"  # Directory for saving screenshots
+        ensure_directory_exists(self.screenshot_dir)  # Ensure the directory exists
+        logging.info(f"Screenshot directory: {self.screenshot_dir}")
+
+    def prompt_user_for_screenshot(self, message: str):
+        """Prompt the user to prepare for a screenshot."""
+        messagebox.showinfo("Screenshot Prompt", message)
+        logging.info(message)
+
+    def take_screenshot(self, filename: str):
+        """Take a screenshot and save it to the specified filename."""
+        screenshot = ImageGrab.grab()
+        screenshot.save(os.path.join(self.screenshot_dir, filename))
+        logging.info(f"Screenshot saved: {filename}")
 
     def calibrate(self, force: bool = False):
-        """Let user select the region to monitor"""
-        if self.region and not force:
-            logging.info("Using saved calibration settings")
-            return
-
+        """Let user select the region to monitor for loot and boss detection"""
         logging.info("Starting calibration process")
-        selector = RegionSelector()
-        self.region = selector.get_region(
-            "Select the area where the loot chest UI appears.\n"
-            "Click and drag to select the region."
-        )
-        
-        if self.region:
-            logging.info(f"Calibrated region: {self.region}")
-            self._calibrate_thresholds()
-            self._save_config()
-        else:
-            logging.error("No region selected during calibration")
-            raise ValueError("Calibration failed - no region selected")
 
-    def _save_config(self):
-        """Save current configuration"""
-        config_data = {
-            'region': self.region,
-            'brightness_threshold': self.brightness_threshold,
-            'min_bright_pixels': self.min_bright_pixels
-        }
-        logging.info(f"Saving config: {config_data}")
-        self.config.save(config_data)
+        both_visible_image_path = os.path.join(self.screenshot_dir, "both_visible.png")
+        none_visible_image_path = os.path.join(self.screenshot_dir, "none_visible.png")
+
+        # Check if screenshots already exist
+        if not os.path.exists(both_visible_image_path):
+            self.prompt_user_for_screenshot("Please ensure both the loot chest and boss are visible, then press OK.")
+            self.take_screenshot("both_visible.png")  # Take screenshot for both visible
+        else:
+            logging.info("Using existing screenshot for both visible.")
+
+        if not os.path.exists(none_visible_image_path):
+            self.prompt_user_for_screenshot("Please ensure neither the loot chest nor the boss is visible, then press OK.")
+            self.take_screenshot("none_visible.png")  # Take screenshot for neither visible
+        else:
+            logging.info("Using existing screenshot for none visible.")
+
+        # Allow user to select regions from the same screenshot
+        self.region_selector = RegionSelector()
+        
+        # Select both regions from the same image
+        self.region = self.region_selector.get_region_from_image(both_visible_image_path, "Select the region for loot detection")
+        self.boss_detection_region = self.region_selector.get_region_from_image(both_visible_image_path, "Select the region for boss detection")
+
+        # Calculate thresholds based on the captured images
+        self._calibrate_thresholds()
+        self._calibrate_boss_thresholds()
+
+        # Save configuration after both calibrations
+        self._save_config()
 
     def _calibrate_thresholds(self):
-        """Calibrate brightness thresholds"""
-        # First message before chest closed measurement
-        messagebox.showinfo(
-            "Calibration Step 1", 
-            "Make sure the loot chest is CLOSED.\n"
-            "After clicking OK:\n"
-            "1. The screen will clear\n"
-            "2. Wait 3 seconds\n"
-            "3. The system will capture baseline values"
-        )
-        
-        # Give time for chest to be closed and UI to clear
-        time.sleep(3)
-        closed_brightness, closed_ratio = self.analyze_region_brightness()
-        logging.info(f"Closed chest values - brightness: {closed_brightness}, ratio: {closed_ratio}")
+        """Calibrate brightness thresholds for loot detection"""
+        # Load images for calibration
+        both_visible_image_path = os.path.join(self.screenshot_dir, "both_visible.png")
+        none_visible_image_path = os.path.join(self.screenshot_dir, "none_visible.png")
 
-        # Message before chest open measurement
-        messagebox.showinfo(
-            "Calibration Step 2",
-            "Now:\n"
-            "1. Open the loot chest\n"
-            "2. Click OK when ready\n"
-            "3. Wait 3 seconds\n"
-            "4. The system will capture active state values"
-        )
-        
-        # Give time for chest to be opened and UI to settle
-        time.sleep(3)
-        open_brightness, open_ratio = self.analyze_region_brightness()
-        logging.info(f"Open chest values - brightness: {open_brightness}, ratio: {open_ratio}")
-        
+        both_visible_image = Image.open(both_visible_image_path)
+        none_visible_image = Image.open(none_visible_image_path)
+
+        both_brightness, both_ratio = self.analyze_image_brightness(both_visible_image)
+        logging.info(f"Loot and boss visible values - brightness: {both_brightness}, ratio: {both_ratio}")
+
+        none_brightness, none_ratio = self.analyze_image_brightness(none_visible_image)
+        logging.info(f"Neither visible values - brightness: {none_brightness}, ratio: {none_ratio}")
+
         # Set thresholds based on samples
-        self.brightness_threshold = (closed_brightness + open_brightness) / 2
-        self.min_bright_pixels = (closed_ratio + open_ratio) / 2
-        
-        logging.info(f"Calibrated thresholds - Brightness: {self.brightness_threshold:.2f}, "
-                    f"Bright pixel ratio: {self.min_bright_pixels:.2f}")
+        self.brightness_threshold = (none_brightness + both_brightness) / 2
+        self.min_bright_pixels = (none_ratio + both_ratio) / 2
 
-    def get_confidence_score(self, region: tuple = None) -> float:
-        """
-        Get the confidence score for template matching
-        Returns: float between 0 and 1
-        """
-        # Capture screen or region
-        if region:
-            screenshot = ImageGrab.grab(bbox=region)
-        else:
-            screenshot = ImageGrab.grab()
-        
-        # Convert PIL image to CV2 format
-        screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-        
-        # Perform template matching
-        result = cv2.matchTemplate(
-            screenshot, 
-            self.template, 
-            cv2.TM_CCOEFF_NORMED
-        )
-        
-        # Get best match confidence
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        return max_val
+        logging.info(f"Calibrated loot thresholds - Brightness: {self.brightness_threshold:.2f}, "
+                     f"Bright pixel ratio: {self.min_bright_pixels:.2f}")
 
-    def is_loot_window_open(self) -> bool:
-        """Check if loot window is open based on brightness analysis"""
-        try:
-            avg_brightness, bright_ratio = self.analyze_region_brightness()
-            is_open = bright_ratio > self.min_bright_pixels
-            
-            logging.info(f"Loot check - brightness: {avg_brightness:.2f}, "
-                        f"ratio: {bright_ratio:.2f}, threshold: {self.min_bright_pixels:.2f}, "
-                        f"is_open: {is_open}")
-            
-            return is_open
-            
-        except Exception as e:
-            logging.error(f"Error checking loot window: {e}")
-            return False
+    def _calibrate_boss_thresholds(self):
+        """Calibrate brightness thresholds for boss detection"""
+        # Load images for calibration
+        both_visible_image_path = os.path.join(self.screenshot_dir, "both_visible.png")
+        none_visible_image_path = os.path.join(self.screenshot_dir, "none_visible.png")
 
-    def analyze_region_brightness(self) -> tuple[float, float]:
+        both_visible_image = Image.open(both_visible_image_path)
+        none_visible_image = Image.open(none_visible_image_path)
+
+        both_brightness, both_ratio = self.analyze_image_brightness(both_visible_image)
+        logging.info(f"Boss visible values - brightness: {both_brightness}, ratio: {both_ratio}")
+
+        none_brightness, none_ratio = self.analyze_image_brightness(none_visible_image)
+        logging.info(f"Neither visible values - brightness: {none_brightness}, ratio: {none_ratio}")
+
+        # Set thresholds based on samples
+        self.boss_brightness_threshold = (none_brightness + both_brightness) / 2
+        self.boss_min_bright_pixels = (none_ratio + none_ratio) / 2
+
+        logging.info(f"Calibrated boss thresholds - Brightness: {self.boss_brightness_threshold:.2f}, "
+                     f"Bright pixel ratio: {self.boss_min_bright_pixels:.2f}")
+
+    def analyze_image_brightness(self, image: Image.Image) -> tuple[float, float]:
         """
-        Analyze brightness in the region
+        Analyze brightness in the specified image
         Returns: (average_brightness, bright_pixel_ratio)
         """
-        if not self.region:
-            logging.error("No region set for brightness analysis")
-            raise ValueError("Region not set")
+        logging.debug(f"Analyzing brightness for image")
+        gray_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        gray_image = cv2.cvtColor(gray_image, cv2.COLOR_BGR2GRAY)
 
-        logging.debug(f"Analyzing brightness for region: {self.region}")
-        screenshot = ImageGrab.grab(bbox=self.region)
-        # Convert to grayscale using numpy for better performance
-        gray_screen = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-        gray_screen = cv2.cvtColor(gray_screen, cv2.COLOR_BGR2GRAY)
-        
-        # Calculate average brightness and ratio of bright pixels
-        avg_brightness = np.mean(gray_screen)
-        bright_pixels = np.sum(gray_screen > self.brightness_threshold)
-        bright_ratio = bright_pixels / (gray_screen.shape[0] * gray_screen.shape[1])
-        
+        avg_brightness = np.mean(gray_image)
+        bright_pixels = np.sum(gray_image > self.brightness_threshold)
+        bright_ratio = bright_pixels / (gray_image.shape[0] * gray_image.shape[1])
+
         logging.debug(f"Brightness analysis - Avg: {avg_brightness:.2f}, Bright ratio: {bright_ratio:.2f}")
         return avg_brightness, bright_ratio
+
+    def _save_config(self):
+        """Save the current configuration to a file."""
+        config_data = {
+            'region': self.region,
+            'boss_detection_region': self.boss_detection_region,
+            'brightness_threshold': self.brightness_threshold,
+            'min_bright_pixels': self.min_bright_pixels,
+            'boss_brightness_threshold': self.boss_brightness_threshold,
+            'boss_min_bright_pixels': self.boss_min_bright_pixels,
+        }
+        with open('config.json', 'w') as config_file:
+            json.dump(config_data, config_file)
+        logging.info("Configuration saved.")
+
+    def is_loot_window_open(self) -> bool:
+        """Check if the loot window is open based on the configured region and brightness."""
+        # Capture the region where the loot window is expected to be
+        loot_region_image = ImageGrab.grab(bbox=self.region)
+        avg_brightness, bright_ratio = self.analyze_image_brightness(loot_region_image)
+
+        # Check if the average brightness and bright pixel ratio exceed the thresholds
+        is_open = avg_brightness > self.brightness_threshold and bright_ratio > self.min_bright_pixels
+        logging.info(f"Loot window open status: {is_open}")
+        return is_open
 
 class Config:
     """Configuration manager for bot settings"""
@@ -477,6 +472,11 @@ class Config:
         except Exception as e:
             logging.error(f"Error saving configuration: {e}")
             raise
+
+def ensure_directory_exists(directory: str):
+    """Ensure that the specified directory exists."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 def main():
     parser = argparse.ArgumentParser(description='TLOPO Bot')

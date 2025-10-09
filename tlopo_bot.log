@@ -1,19 +1,9 @@
-2025-10-09 16:46:29,990 - INFO - Initializing LootDetector
-2025-10-09 16:46:29,991 - INFO - Loading configuration from bot_config.json
-2025-10-09 16:46:29,991 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
-2025-10-09 16:46:29,991 - INFO - Loaded config: region=[522, 321, 1209, 770], brightness_threshold=102.67477460829986, min_bright_pixels=0.24369859594181476
-2025-10-09 16:46:29,991 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
-2025-10-09 16:46:29,992 - INFO - Using saved calibration settings
-2025-10-09 16:46:30,407 - INFO - Starting iteration #1
-2025-10-09 16:46:30,407 - INFO - CTRL press/release #1
-2025-10-09 16:46:31,508 - INFO - CTRL press/release #2
-2025-10-09 16:46:32,609 - INFO - CTRL press/release #3
-2025-10-09 16:46:33,710 - INFO - CTRL press/release #4
-2025-10-09 16:46:34,811 - INFO - CTRL press/release #5
-2025-10-09 16:46:35,912 - INFO - Pressing SHIFT
-2025-10-09 16:46:36,964 - INFO - Loot check - brightness: 141.79, ratio: 0.80, threshold: 0.24, is_open: True
-2025-10-09 16:46:36,964 - INFO - Loot window detected! Waiting 5 seconds before pressing ESC
-2025-10-09 16:46:41,965 - INFO - Pressing ESC to close the loot window
-2025-10-09 16:46:42,452 - INFO - Starting iteration #2
-2025-10-09 16:46:42,452 - INFO - CTRL press/release #1
-2025-10-09 16:46:43,554 - INFO - CTRL press/release #2
+2025-10-09 17:59:08,903 - INFO - Initializing LootDetector
+2025-10-09 17:59:08,911 - INFO - Loading configuration from bot_config.json
+2025-10-09 17:59:08,911 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 17:59:08,911 - INFO - Screenshot directory: screenshots
+2025-10-09 17:59:08,911 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 17:59:08,911 - INFO - Starting calibration process
+2025-10-09 17:59:08,912 - INFO - Using existing screenshot for both visible.
+2025-10-09 17:59:08,912 - INFO - Using existing screenshot for none visible.
+2025-10-09 17:59:08,979 - INFO - Starting region selection from image...
