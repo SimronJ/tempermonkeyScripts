@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import argparse
 import os
+import random  # Add this import at the top of your file
 
 try:
     import psutil
@@ -158,7 +159,9 @@ class TLOPOBot:
         self.constants = WindowsConstants()
         self.loot_detector = LootDetector()
         self.cycle_count = 0  # Initialize cycle counter
-        
+        self.random_cycle_limit = random.randint(3, 20)  # Randomly set cycle limit between 3 and 20
+        logging.info(f"Random cycle limit set to: {self.random_cycle_limit}")
+
     def run(self, force_calibrate: bool = False):
         """Main bot loop"""
         logging.info("Starting TLOPO Bot - Press Ctrl+C to stop")
@@ -229,13 +232,15 @@ class TLOPOBot:
         self.cycle_count += 1
         logging.info(f"Cycle count: {self.cycle_count}")
 
-        # Check if the cycle count has reached 3
-        if self.cycle_count >= 3:
-            logging.info("Pressing Esc after 3 cycles...")
+        # Check if the cycle count has reached the random limit
+        if self.cycle_count >= self.random_cycle_limit:
+            logging.info("Pressing Esc after reaching random cycle limit...")
             self.window.post_key(hwnd, self.constants.VK_ESCAPE, True)  # Press Esc
             time.sleep(0.1)  # Brief hold
             self.window.post_key(hwnd, self.constants.VK_ESCAPE, False)  # Release Esc
             self.cycle_count = 0  # Reset cycle count
+            self.random_cycle_limit = random.randint(3, 20)  # Generate a new random limit
+            logging.info(f"New random cycle limit set to: {self.random_cycle_limit}")
 
         # Wait for 3 seconds before the next cycle
         logging.info("Waiting for 3 seconds before the next cycle...")
