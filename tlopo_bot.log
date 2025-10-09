@@ -166,3 +166,556 @@
 2025-10-09 15:52:56,900 - INFO - CTRL press/release #5
 2025-10-09 15:52:58,001 - INFO - Holding SHIFT for 4.0s
 2025-10-09 15:53:00,418 - INFO - Bot stopped by user
+2025-10-09 16:01:57,302 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:01:57,703 - INFO - Starting iteration #1
+2025-10-09 16:01:57,704 - INFO - CTRL press/release #1
+2025-10-09 16:01:58,805 - INFO - CTRL press/release #2
+2025-10-09 16:01:59,906 - INFO - CTRL press/release #3
+2025-10-09 16:02:01,007 - INFO - CTRL press/release #4
+2025-10-09 16:02:02,108 - INFO - CTRL press/release #5
+2025-10-09 16:02:03,209 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:02:08,285 - INFO - No loot window found. Confidence score: 0.45
+2025-10-09 16:02:08,286 - INFO - Pressing ESC
+2025-10-09 16:02:08,286 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:02:09,670 - INFO - Starting iteration #2
+2025-10-09 16:02:09,670 - INFO - CTRL press/release #1
+2025-10-09 16:02:10,772 - INFO - CTRL press/release #2
+2025-10-09 16:02:11,873 - INFO - CTRL press/release #3
+2025-10-09 16:02:12,976 - INFO - CTRL press/release #4
+2025-10-09 16:02:14,077 - INFO - CTRL press/release #5
+2025-10-09 16:02:15,178 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:02:20,019 - INFO - No loot window found. Confidence score: 0.56
+2025-10-09 16:02:20,019 - INFO - Pressing ESC
+2025-10-09 16:02:20,020 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:02:21,438 - INFO - Starting iteration #3
+2025-10-09 16:02:21,438 - INFO - CTRL press/release #1
+2025-10-09 16:02:22,539 - INFO - CTRL press/release #2
+2025-10-09 16:02:23,640 - INFO - CTRL press/release #3
+2025-10-09 16:02:24,741 - INFO - CTRL press/release #4
+2025-10-09 16:02:25,842 - INFO - CTRL press/release #5
+2025-10-09 16:02:26,943 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:02:31,802 - INFO - No loot window found. Confidence score: 0.56
+2025-10-09 16:02:31,802 - INFO - Pressing ESC
+2025-10-09 16:02:31,802 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:02:33,183 - INFO - Starting iteration #4
+2025-10-09 16:02:33,183 - INFO - CTRL press/release #1
+2025-10-09 16:02:34,285 - INFO - CTRL press/release #2
+2025-10-09 16:02:35,386 - INFO - CTRL press/release #3
+2025-10-09 16:02:36,487 - INFO - CTRL press/release #4
+2025-10-09 16:02:37,588 - INFO - CTRL press/release #5
+2025-10-09 16:02:38,690 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:02:43,566 - INFO - No loot window found. Confidence score: 0.56
+2025-10-09 16:02:43,566 - INFO - Pressing ESC
+2025-10-09 16:02:43,566 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:02:45,033 - INFO - Starting iteration #5
+2025-10-09 16:02:45,034 - INFO - CTRL press/release #1
+2025-10-09 16:02:46,135 - INFO - CTRL press/release #2
+2025-10-09 16:02:47,236 - INFO - CTRL press/release #3
+2025-10-09 16:02:48,337 - INFO - CTRL press/release #4
+2025-10-09 16:02:49,439 - INFO - CTRL press/release #5
+2025-10-09 16:02:50,540 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:02:55,389 - INFO - No loot window found. Confidence score: 0.44
+2025-10-09 16:02:55,390 - INFO - Pressing ESC
+2025-10-09 16:02:55,390 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:02:56,869 - INFO - Starting iteration #6
+2025-10-09 16:02:56,869 - INFO - CTRL press/release #1
+2025-10-09 16:02:57,971 - INFO - CTRL press/release #2
+2025-10-09 16:02:59,072 - INFO - CTRL press/release #3
+2025-10-09 16:03:00,173 - INFO - CTRL press/release #4
+2025-10-09 16:03:01,275 - INFO - CTRL press/release #5
+2025-10-09 16:03:02,376 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:03:07,222 - INFO - No loot window found. Confidence score: 0.44
+2025-10-09 16:03:07,222 - INFO - Pressing ESC
+2025-10-09 16:03:07,222 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:03:08,719 - INFO - Starting iteration #7
+2025-10-09 16:03:08,720 - INFO - CTRL press/release #1
+2025-10-09 16:03:09,821 - INFO - CTRL press/release #2
+2025-10-09 16:03:10,923 - INFO - CTRL press/release #3
+2025-10-09 16:03:12,024 - INFO - CTRL press/release #4
+2025-10-09 16:03:13,125 - INFO - CTRL press/release #5
+2025-10-09 16:03:14,225 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:03:19,104 - INFO - No loot window found. Confidence score: 0.38
+2025-10-09 16:03:19,105 - INFO - Pressing ESC
+2025-10-09 16:03:19,105 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:03:20,563 - INFO - Starting iteration #8
+2025-10-09 16:03:20,563 - INFO - CTRL press/release #1
+2025-10-09 16:03:21,664 - INFO - CTRL press/release #2
+2025-10-09 16:03:22,766 - INFO - CTRL press/release #3
+2025-10-09 16:03:23,867 - INFO - CTRL press/release #4
+2025-10-09 16:03:24,967 - INFO - CTRL press/release #5
+2025-10-09 16:03:26,069 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:03:30,930 - INFO - No loot window found. Confidence score: 0.39
+2025-10-09 16:03:30,930 - INFO - Pressing ESC
+2025-10-09 16:03:30,930 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:03:32,380 - INFO - Starting iteration #9
+2025-10-09 16:03:32,380 - INFO - CTRL press/release #1
+2025-10-09 16:03:33,482 - INFO - CTRL press/release #2
+2025-10-09 16:03:34,584 - INFO - CTRL press/release #3
+2025-10-09 16:03:35,685 - INFO - CTRL press/release #4
+2025-10-09 16:03:36,786 - INFO - CTRL press/release #5
+2025-10-09 16:03:37,887 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:03:42,733 - INFO - No loot window found. Confidence score: 0.39
+2025-10-09 16:03:42,733 - INFO - Pressing ESC
+2025-10-09 16:03:42,734 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:03:44,178 - INFO - Starting iteration #10
+2025-10-09 16:03:44,179 - INFO - CTRL press/release #1
+2025-10-09 16:03:45,280 - INFO - CTRL press/release #2
+2025-10-09 16:03:46,381 - INFO - CTRL press/release #3
+2025-10-09 16:03:47,483 - INFO - CTRL press/release #4
+2025-10-09 16:03:48,584 - INFO - CTRL press/release #5
+2025-10-09 16:03:49,686 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:03:54,533 - INFO - No loot window found. Confidence score: 0.56
+2025-10-09 16:03:54,534 - INFO - Pressing ESC
+2025-10-09 16:03:54,534 - INFO - Sequence complete, waiting 1.0s
+2025-10-09 16:03:56,134 - INFO - Starting iteration #11
+2025-10-09 16:03:56,135 - INFO - CTRL press/release #1
+2025-10-09 16:03:57,080 - INFO - Bot stopped by user
+2025-10-09 16:11:23,371 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:12:57,340 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:14:25,600 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:15:27,450 - INFO - Bot stopped by user
+2025-10-09 16:15:29,187 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:15:29,188 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:15:29,188 - INFO - Using saved calibration settings
+2025-10-09 16:15:29,681 - INFO - Starting iteration #1
+2025-10-09 16:15:29,681 - INFO - CTRL press/release #1
+2025-10-09 16:15:30,782 - INFO - CTRL press/release #2
+2025-10-09 16:15:31,883 - INFO - CTRL press/release #3
+2025-10-09 16:15:32,984 - INFO - CTRL press/release #4
+2025-10-09 16:15:34,085 - INFO - CTRL press/release #5
+2025-10-09 16:15:35,187 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:15:39,754 - ERROR - Error in bot loop: 'LootDetector' object has no attribute 'template'
+2025-10-09 16:15:41,165 - INFO - Starting iteration #2
+2025-10-09 16:15:41,166 - INFO - CTRL press/release #1
+2025-10-09 16:15:42,266 - INFO - CTRL press/release #2
+2025-10-09 16:15:43,368 - INFO - CTRL press/release #3
+2025-10-09 16:15:44,469 - INFO - CTRL press/release #4
+2025-10-09 16:15:45,572 - INFO - CTRL press/release #5
+2025-10-09 16:15:46,672 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:15:51,231 - ERROR - Error in bot loop: 'LootDetector' object has no attribute 'template'
+2025-10-09 16:15:52,609 - INFO - Starting iteration #3
+2025-10-09 16:15:52,609 - INFO - CTRL press/release #1
+2025-10-09 16:15:53,710 - INFO - CTRL press/release #2
+2025-10-09 16:15:54,811 - INFO - CTRL press/release #3
+2025-10-09 16:15:55,912 - INFO - CTRL press/release #4
+2025-10-09 16:15:56,930 - INFO - Bot stopped by user
+2025-10-09 16:16:20,544 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:16:20,545 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:16:35,142 - INFO - Bot stopped by user
+2025-10-09 16:19:00,420 - INFO - Initializing LootDetector
+2025-10-09 16:19:00,420 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:19:00,421 - INFO - Loaded config: region=[100, 200, 300, 400], brightness_threshold=155.5, min_bright_pixels=0.45
+2025-10-09 16:19:00,421 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:19:00,421 - INFO - Starting calibration process
+2025-10-09 16:19:00,490 - INFO - Starting region selection...
+2025-10-09 16:19:06,717 - INFO - Region selected: (527, 398, 1206, 850)
+2025-10-09 16:19:06,718 - INFO - Returning selected region: (527, 398, 1206, 850)
+2025-10-09 16:19:06,721 - INFO - Calibrated region: (527, 398, 1206, 850)
+2025-10-09 16:21:36,701 - INFO - Initializing LootDetector
+2025-10-09 16:21:36,702 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:21:36,702 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 16:21:36,702 - INFO - Loaded config: region=[100, 200, 300, 400], brightness_threshold=155.5, min_bright_pixels=0.45
+2025-10-09 16:21:36,703 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:21:36,703 - INFO - Starting calibration process
+2025-10-09 16:21:36,770 - INFO - Starting region selection...
+2025-10-09 16:21:44,114 - INFO - Region selected: (526, 327, 1201, 766)
+2025-10-09 16:21:44,115 - INFO - Returning selected region: (526, 327, 1201, 766)
+2025-10-09 16:21:44,119 - INFO - Calibrated region: (526, 327, 1201, 766)
+2025-10-09 16:21:54,878 - INFO - Region selected: (1441, 638, 1458, 665)
+2025-10-09 16:21:57,913 - INFO - Calibrated thresholds - Brightness: 170.67, Bright pixel ratio: 0.76
+2025-10-09 16:21:57,913 - INFO - Saving config: {'region': (526, 327, 1201, 766), 'brightness_threshold': np.float64(170.6699940943221), 'min_bright_pixels': np.float64(0.7551404707668945)}
+2025-10-09 16:21:57,914 - INFO - Configuration saved to bot_config.json: {'region': [526, 327, 1201, 766], 'brightness_threshold': np.float64(170.6699940943221), 'min_bright_pixels': np.float64(0.7551404707668945)}
+2025-10-09 16:21:58,318 - INFO - Starting iteration #1
+2025-10-09 16:21:58,318 - INFO - CTRL press/release #1
+2025-10-09 16:21:59,420 - INFO - CTRL press/release #2
+2025-10-09 16:22:00,358 - INFO - Bot stopped by user
+2025-10-09 16:22:06,651 - INFO - Initializing LootDetector
+2025-10-09 16:22:06,652 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:22:06,652 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 16:22:06,652 - INFO - Loaded config: region=[526, 327, 1201, 766], brightness_threshold=170.6699940943221, min_bright_pixels=0.7551404707668945
+2025-10-09 16:22:06,652 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:22:06,652 - INFO - Starting calibration process
+2025-10-09 16:22:06,718 - INFO - Starting region selection...
+2025-10-09 16:22:15,950 - INFO - Region selected: (523, 323, 1204, 759)
+2025-10-09 16:22:15,950 - INFO - Returning selected region: (523, 323, 1204, 759)
+2025-10-09 16:22:15,959 - INFO - Calibrated region: (523, 323, 1204, 759)
+2025-10-09 16:22:24,193 - INFO - Region selected: (1394, 640, 1394, 640)
+2025-10-09 16:22:25,377 - INFO - Region selected: (1376, 647, 1376, 647)
+2025-10-09 16:22:26,333 - INFO - Region selected: (1353, 611, 1353, 611)
+2025-10-09 16:22:28,186 - INFO - Region selected: (1307, 640, 1361, 721)
+2025-10-09 16:22:28,895 - INFO - Region selected: (1333, 707, 1404, 785)
+2025-10-09 16:22:29,228 - INFO - Region selected: (1190, 651, 1399, 787)
+2025-10-09 16:22:29,520 - INFO - Region selected: (1193, 662, 1390, 837)
+2025-10-09 16:22:29,786 - INFO - Region selected: (1216, 748, 1413, 861)
+2025-10-09 16:22:30,070 - INFO - Region selected: (1123, 698, 1372, 868)
+2025-10-09 16:22:31,446 - INFO - Region selected: (529, 330, 651, 478)
+2025-10-09 16:22:32,527 - INFO - Region selected: (548, 336, 548, 336)
+2025-10-09 16:22:36,340 - INFO - Region selected: (524, 328, 1191, 762)
+2025-10-09 16:22:46,600 - INFO - Calibrated thresholds - Brightness: 170.07, Bright pixel ratio: 0.65
+2025-10-09 16:22:46,600 - INFO - Saving config: {'region': (523, 323, 1204, 759), 'brightness_threshold': np.float64(170.06950450632502), 'min_bright_pixels': np.float64(0.6464993466165514)}
+2025-10-09 16:22:46,601 - INFO - Configuration saved to bot_config.json: {'region': [523, 323, 1204, 759], 'brightness_threshold': np.float64(170.06950450632502), 'min_bright_pixels': np.float64(0.6464993466165514)}
+2025-10-09 16:22:47,017 - INFO - Starting iteration #1
+2025-10-09 16:22:47,017 - INFO - CTRL press/release #1
+2025-10-09 16:22:48,118 - INFO - CTRL press/release #2
+2025-10-09 16:22:49,219 - INFO - CTRL press/release #3
+2025-10-09 16:22:50,320 - INFO - CTRL press/release #4
+2025-10-09 16:22:51,422 - INFO - CTRL press/release #5
+2025-10-09 16:22:52,522 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:22:57,081 - ERROR - Error in bot loop: 'LootDetector' object has no attribute 'template'
+2025-10-09 16:26:06,541 - INFO - Initializing LootDetector
+2025-10-09 16:26:06,542 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:26:06,542 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 16:26:06,542 - INFO - Loaded config: region=[523, 323, 1204, 759], brightness_threshold=170.06950450632502, min_bright_pixels=0.6464993466165514
+2025-10-09 16:26:06,542 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:26:06,543 - INFO - Starting calibration process
+2025-10-09 16:26:06,616 - INFO - Starting region selection...
+2025-10-09 16:26:35,089 - INFO - Region selected: (522, 321, 1209, 770)
+2025-10-09 16:26:35,098 - INFO - Returning selected region: (522, 321, 1209, 770)
+2025-10-09 16:26:35,102 - INFO - Calibrated region: (522, 321, 1209, 770)
+2025-10-09 16:27:04,249 - INFO - Closed chest values - brightness: 63.80480965302159, ratio: 0.0620787582303226
+2025-10-09 16:27:13,138 - INFO - Open chest values - brightness: 141.54473956357813, ratio: 0.4253184336533069
+2025-10-09 16:27:13,138 - INFO - Calibrated thresholds - Brightness: 102.67, Bright pixel ratio: 0.24
+2025-10-09 16:27:13,138 - INFO - Saving config: {'region': (522, 321, 1209, 770), 'brightness_threshold': np.float64(102.67477460829986), 'min_bright_pixels': np.float64(0.24369859594181476)}
+2025-10-09 16:27:13,139 - INFO - Configuration saved to bot_config.json: {'region': [522, 321, 1209, 770], 'brightness_threshold': np.float64(102.67477460829986), 'min_bright_pixels': np.float64(0.24369859594181476)}
+2025-10-09 16:27:13,587 - INFO - Starting iteration #1
+2025-10-09 16:27:13,587 - INFO - CTRL press/release #1
+2025-10-09 16:27:14,689 - INFO - CTRL press/release #2
+2025-10-09 16:27:15,790 - INFO - CTRL press/release #3
+2025-10-09 16:27:16,891 - INFO - CTRL press/release #4
+2025-10-09 16:27:17,992 - INFO - CTRL press/release #5
+2025-10-09 16:27:19,093 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:27:23,646 - ERROR - Error in bot loop: 'LootDetector' object has no attribute 'template'
+2025-10-09 16:27:25,079 - INFO - Starting iteration #2
+2025-10-09 16:27:25,080 - INFO - CTRL press/release #1
+2025-10-09 16:27:26,181 - INFO - CTRL press/release #2
+2025-10-09 16:27:27,282 - INFO - CTRL press/release #3
+2025-10-09 16:27:28,383 - INFO - CTRL press/release #4
+2025-10-09 16:27:29,483 - INFO - CTRL press/release #5
+2025-10-09 16:27:30,584 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:27:35,141 - ERROR - Error in bot loop: 'LootDetector' object has no attribute 'template'
+2025-10-09 16:27:36,579 - INFO - Starting iteration #3
+2025-10-09 16:27:36,579 - INFO - CTRL press/release #1
+2025-10-09 16:27:37,681 - INFO - CTRL press/release #2
+2025-10-09 16:27:38,782 - INFO - CTRL press/release #3
+2025-10-09 16:27:39,883 - INFO - CTRL press/release #4
+2025-10-09 16:27:40,984 - INFO - CTRL press/release #5
+2025-10-09 16:27:42,085 - INFO - Holding SHIFT for 4.0s
+2025-10-09 16:27:46,639 - ERROR - Error in bot loop: 'LootDetector' object has no attribute 'template'
+2025-10-09 16:27:48,138 - INFO - Starting iteration #4
+2025-10-09 16:27:48,138 - INFO - CTRL press/release #1
+2025-10-09 16:27:49,240 - INFO - CTRL press/release #2
+2025-10-09 16:27:50,341 - INFO - CTRL press/release #3
+2025-10-09 16:27:50,364 - INFO - Bot stopped by user
+2025-10-09 16:30:06,481 - INFO - Initializing LootDetector
+2025-10-09 16:30:06,481 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:30:06,481 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 16:30:06,482 - INFO - Loaded config: region=[522, 321, 1209, 770], brightness_threshold=102.67477460829986, min_bright_pixels=0.24369859594181476
+2025-10-09 16:30:06,482 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:30:06,482 - INFO - Using saved calibration settings
+2025-10-09 16:30:06,901 - INFO - Starting iteration #1
+2025-10-09 16:30:06,901 - INFO - CTRL press/release #1
+2025-10-09 16:30:08,003 - INFO - CTRL press/release #2
+2025-10-09 16:30:09,104 - INFO - CTRL press/release #3
+2025-10-09 16:30:10,205 - INFO - CTRL press/release #4
+2025-10-09 16:30:11,306 - INFO - CTRL press/release #5
+2025-10-09 16:30:12,407 - INFO - Pressing SHIFT
+2025-10-09 16:30:13,156 - INFO - Loot check - brightness: 70.48, ratio: 0.19, threshold: 0.24, is_open: False
+2025-10-09 16:30:13,156 - INFO - No loot window detected
+2025-10-09 16:30:13,156 - INFO - Pressing ESC
+2025-10-09 16:30:14,682 - INFO - Starting iteration #2
+2025-10-09 16:30:14,682 - INFO - CTRL press/release #1
+2025-10-09 16:30:15,783 - INFO - CTRL press/release #2
+2025-10-09 16:30:16,884 - INFO - CTRL press/release #3
+2025-10-09 16:30:17,985 - INFO - CTRL press/release #4
+2025-10-09 16:30:19,087 - INFO - CTRL press/release #5
+2025-10-09 16:30:20,188 - INFO - Pressing SHIFT
+2025-10-09 16:30:20,936 - INFO - Loot check - brightness: 43.27, ratio: 0.02, threshold: 0.24, is_open: False
+2025-10-09 16:30:20,937 - INFO - No loot window detected
+2025-10-09 16:30:20,937 - INFO - Pressing ESC
+2025-10-09 16:30:22,428 - INFO - Starting iteration #3
+2025-10-09 16:30:22,428 - INFO - CTRL press/release #1
+2025-10-09 16:30:23,531 - INFO - CTRL press/release #2
+2025-10-09 16:30:24,632 - INFO - CTRL press/release #3
+2025-10-09 16:30:25,733 - INFO - CTRL press/release #4
+2025-10-09 16:30:26,835 - INFO - CTRL press/release #5
+2025-10-09 16:30:27,935 - INFO - Pressing SHIFT
+2025-10-09 16:30:28,677 - INFO - Loot check - brightness: 44.48, ratio: 0.02, threshold: 0.24, is_open: False
+2025-10-09 16:30:28,678 - INFO - No loot window detected
+2025-10-09 16:30:28,678 - INFO - Pressing ESC
+2025-10-09 16:30:30,167 - INFO - Starting iteration #4
+2025-10-09 16:30:30,167 - INFO - CTRL press/release #1
+2025-10-09 16:30:31,269 - INFO - CTRL press/release #2
+2025-10-09 16:30:32,370 - INFO - CTRL press/release #3
+2025-10-09 16:30:33,472 - INFO - CTRL press/release #4
+2025-10-09 16:30:34,573 - INFO - CTRL press/release #5
+2025-10-09 16:30:35,674 - INFO - Pressing SHIFT
+2025-10-09 16:30:36,414 - INFO - Loot check - brightness: 47.42, ratio: 0.05, threshold: 0.24, is_open: False
+2025-10-09 16:30:36,414 - INFO - No loot window detected
+2025-10-09 16:30:36,414 - INFO - Pressing ESC
+2025-10-09 16:30:37,905 - INFO - Starting iteration #5
+2025-10-09 16:30:37,905 - INFO - CTRL press/release #1
+2025-10-09 16:30:39,007 - INFO - CTRL press/release #2
+2025-10-09 16:30:40,107 - INFO - CTRL press/release #3
+2025-10-09 16:30:41,208 - INFO - CTRL press/release #4
+2025-10-09 16:30:42,309 - INFO - CTRL press/release #5
+2025-10-09 16:30:43,410 - INFO - Pressing SHIFT
+2025-10-09 16:30:44,164 - INFO - Loot check - brightness: 141.69, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:30:44,164 - INFO - Loot window detected!
+2025-10-09 16:30:44,560 - INFO - Starting iteration #6
+2025-10-09 16:30:44,560 - INFO - CTRL press/release #1
+2025-10-09 16:30:45,661 - INFO - CTRL press/release #2
+2025-10-09 16:30:46,762 - INFO - CTRL press/release #3
+2025-10-09 16:30:47,863 - INFO - CTRL press/release #4
+2025-10-09 16:30:48,964 - INFO - CTRL press/release #5
+2025-10-09 16:30:50,065 - INFO - Pressing SHIFT
+2025-10-09 16:30:50,882 - INFO - Loot check - brightness: 141.73, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:30:50,883 - INFO - Loot window detected!
+2025-10-09 16:30:51,269 - INFO - Starting iteration #7
+2025-10-09 16:30:51,269 - INFO - CTRL press/release #1
+2025-10-09 16:30:52,371 - INFO - CTRL press/release #2
+2025-10-09 16:30:52,780 - INFO - Bot stopped by user
+2025-10-09 16:33:23,081 - INFO - Initializing LootDetector
+2025-10-09 16:33:23,082 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:33:23,082 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 16:33:23,082 - INFO - Loaded config: region=[522, 321, 1209, 770], brightness_threshold=102.67477460829986, min_bright_pixels=0.24369859594181476
+2025-10-09 16:33:23,083 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:33:23,083 - INFO - Using saved calibration settings
+2025-10-09 16:33:23,545 - INFO - Starting iteration #1
+2025-10-09 16:33:23,545 - INFO - CTRL press/release #1
+2025-10-09 16:33:24,646 - INFO - CTRL press/release #2
+2025-10-09 16:33:25,747 - INFO - CTRL press/release #3
+2025-10-09 16:33:26,848 - INFO - CTRL press/release #4
+2025-10-09 16:33:27,949 - INFO - CTRL press/release #5
+2025-10-09 16:33:29,050 - INFO - Pressing SHIFT
+2025-10-09 16:33:29,252 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:33:34,300 - INFO - Loot check - brightness: 48.14, ratio: 0.04, threshold: 0.24, is_open: False
+2025-10-09 16:33:34,300 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:33:34,697 - INFO - Starting iteration #2
+2025-10-09 16:33:34,697 - INFO - CTRL press/release #1
+2025-10-09 16:33:35,798 - INFO - CTRL press/release #2
+2025-10-09 16:33:36,899 - INFO - CTRL press/release #3
+2025-10-09 16:33:38,000 - INFO - CTRL press/release #4
+2025-10-09 16:33:39,101 - INFO - CTRL press/release #5
+2025-10-09 16:33:40,203 - INFO - Pressing SHIFT
+2025-10-09 16:33:40,403 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:33:45,471 - INFO - Loot check - brightness: 43.49, ratio: 0.02, threshold: 0.24, is_open: False
+2025-10-09 16:33:45,471 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:33:45,866 - INFO - Starting iteration #3
+2025-10-09 16:33:45,866 - INFO - CTRL press/release #1
+2025-10-09 16:33:46,968 - INFO - CTRL press/release #2
+2025-10-09 16:33:48,069 - INFO - CTRL press/release #3
+2025-10-09 16:33:49,171 - INFO - CTRL press/release #4
+2025-10-09 16:33:50,272 - INFO - CTRL press/release #5
+2025-10-09 16:33:51,373 - INFO - Pressing SHIFT
+2025-10-09 16:33:51,573 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:33:56,621 - INFO - Loot check - brightness: 140.80, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:33:56,622 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:33:57,115 - INFO - Starting iteration #4
+2025-10-09 16:33:57,115 - INFO - CTRL press/release #1
+2025-10-09 16:33:58,216 - INFO - CTRL press/release #2
+2025-10-09 16:33:59,317 - INFO - CTRL press/release #3
+2025-10-09 16:34:00,419 - INFO - CTRL press/release #4
+2025-10-09 16:34:01,521 - INFO - CTRL press/release #5
+2025-10-09 16:34:02,623 - INFO - Pressing SHIFT
+2025-10-09 16:34:02,824 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:34:07,885 - INFO - Loot check - brightness: 140.87, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:34:07,885 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:34:08,372 - INFO - Starting iteration #5
+2025-10-09 16:34:08,372 - INFO - CTRL press/release #1
+2025-10-09 16:34:09,473 - INFO - CTRL press/release #2
+2025-10-09 16:34:10,575 - INFO - CTRL press/release #3
+2025-10-09 16:34:11,675 - INFO - CTRL press/release #4
+2025-10-09 16:34:12,776 - INFO - CTRL press/release #5
+2025-10-09 16:34:13,878 - INFO - Pressing SHIFT
+2025-10-09 16:34:14,078 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:34:19,121 - INFO - Loot check - brightness: 140.87, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:34:19,121 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:34:19,642 - INFO - Starting iteration #6
+2025-10-09 16:34:19,642 - INFO - CTRL press/release #1
+2025-10-09 16:34:20,743 - INFO - CTRL press/release #2
+2025-10-09 16:34:21,844 - INFO - CTRL press/release #3
+2025-10-09 16:34:22,945 - INFO - CTRL press/release #4
+2025-10-09 16:34:24,046 - INFO - CTRL press/release #5
+2025-10-09 16:34:25,147 - INFO - Pressing SHIFT
+2025-10-09 16:34:25,348 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:34:30,395 - INFO - Loot check - brightness: 141.74, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:34:30,395 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:34:30,955 - INFO - Starting iteration #7
+2025-10-09 16:34:30,957 - INFO - CTRL press/release #1
+2025-10-09 16:34:32,058 - INFO - CTRL press/release #2
+2025-10-09 16:34:33,158 - INFO - CTRL press/release #3
+2025-10-09 16:34:34,260 - INFO - CTRL press/release #4
+2025-10-09 16:34:35,361 - INFO - CTRL press/release #5
+2025-10-09 16:34:36,462 - INFO - Pressing SHIFT
+2025-10-09 16:34:36,663 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:34:41,716 - INFO - Loot check - brightness: 140.92, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:34:41,716 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:34:42,193 - INFO - Starting iteration #8
+2025-10-09 16:34:42,193 - INFO - CTRL press/release #1
+2025-10-09 16:34:43,295 - INFO - CTRL press/release #2
+2025-10-09 16:34:44,396 - INFO - CTRL press/release #3
+2025-10-09 16:34:45,497 - INFO - CTRL press/release #4
+2025-10-09 16:34:46,599 - INFO - CTRL press/release #5
+2025-10-09 16:34:47,700 - INFO - Pressing SHIFT
+2025-10-09 16:34:47,900 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:34:52,946 - INFO - Loot check - brightness: 141.83, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:34:52,946 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:34:53,440 - INFO - Starting iteration #9
+2025-10-09 16:34:53,440 - INFO - CTRL press/release #1
+2025-10-09 16:34:54,542 - INFO - CTRL press/release #2
+2025-10-09 16:34:55,642 - INFO - CTRL press/release #3
+2025-10-09 16:34:56,743 - INFO - CTRL press/release #4
+2025-10-09 16:34:57,845 - INFO - CTRL press/release #5
+2025-10-09 16:34:58,946 - INFO - Pressing SHIFT
+2025-10-09 16:34:59,146 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:35:04,192 - INFO - Loot check - brightness: 140.88, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:35:04,193 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:35:04,708 - INFO - Starting iteration #10
+2025-10-09 16:35:04,708 - INFO - CTRL press/release #1
+2025-10-09 16:35:05,810 - INFO - CTRL press/release #2
+2025-10-09 16:35:06,911 - INFO - CTRL press/release #3
+2025-10-09 16:35:08,012 - INFO - CTRL press/release #4
+2025-10-09 16:35:09,113 - INFO - CTRL press/release #5
+2025-10-09 16:35:10,214 - INFO - Pressing SHIFT
+2025-10-09 16:35:10,415 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:35:15,479 - INFO - Loot check - brightness: 142.69, ratio: 0.81, threshold: 0.24, is_open: True
+2025-10-09 16:35:15,479 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:35:15,989 - INFO - Starting iteration #11
+2025-10-09 16:35:15,989 - INFO - CTRL press/release #1
+2025-10-09 16:35:17,090 - INFO - CTRL press/release #2
+2025-10-09 16:35:18,191 - INFO - CTRL press/release #3
+2025-10-09 16:35:19,293 - INFO - CTRL press/release #4
+2025-10-09 16:35:20,394 - INFO - CTRL press/release #5
+2025-10-09 16:35:21,494 - INFO - Pressing SHIFT
+2025-10-09 16:35:21,695 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:35:26,742 - INFO - Loot check - brightness: 141.83, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:35:26,743 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:35:27,310 - INFO - Starting iteration #12
+2025-10-09 16:35:27,311 - INFO - CTRL press/release #1
+2025-10-09 16:35:28,412 - INFO - CTRL press/release #2
+2025-10-09 16:35:29,513 - INFO - CTRL press/release #3
+2025-10-09 16:35:30,614 - INFO - CTRL press/release #4
+2025-10-09 16:35:31,715 - INFO - CTRL press/release #5
+2025-10-09 16:35:32,816 - INFO - Pressing SHIFT
+2025-10-09 16:35:33,017 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:35:38,058 - INFO - Loot check - brightness: 140.97, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:35:38,058 - INFO - Loot window detected! Pressing ESC to close
+2025-10-09 16:35:38,599 - INFO - Starting iteration #13
+2025-10-09 16:35:38,600 - INFO - CTRL press/release #1
+2025-10-09 16:35:39,701 - INFO - CTRL press/release #2
+2025-10-09 16:35:40,802 - INFO - CTRL press/release #3
+2025-10-09 16:35:41,903 - INFO - CTRL press/release #4
+2025-10-09 16:35:43,004 - INFO - CTRL press/release #5
+2025-10-09 16:35:44,105 - INFO - Pressing SHIFT
+2025-10-09 16:35:44,306 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:35:49,364 - INFO - Loot check - brightness: 47.83, ratio: 0.05, threshold: 0.24, is_open: False
+2025-10-09 16:35:49,364 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:35:49,976 - INFO - Starting iteration #14
+2025-10-09 16:35:49,976 - INFO - CTRL press/release #1
+2025-10-09 16:35:51,078 - INFO - CTRL press/release #2
+2025-10-09 16:35:52,179 - INFO - CTRL press/release #3
+2025-10-09 16:35:53,280 - INFO - CTRL press/release #4
+2025-10-09 16:35:54,381 - INFO - CTRL press/release #5
+2025-10-09 16:35:55,482 - INFO - Pressing SHIFT
+2025-10-09 16:35:55,683 - INFO - Waiting 5 seconds after SHIFT press
+2025-10-09 16:36:00,726 - INFO - Loot check - brightness: 45.08, ratio: 0.03, threshold: 0.24, is_open: False
+2025-10-09 16:36:00,726 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:36:01,186 - INFO - Starting iteration #15
+2025-10-09 16:36:01,186 - INFO - CTRL press/release #1
+2025-10-09 16:36:02,128 - INFO - Bot stopped by user
+2025-10-09 16:36:12,796 - INFO - Initializing LootDetector
+2025-10-09 16:36:12,796 - INFO - Loading configuration from bot_config.json
+2025-10-09 16:36:12,797 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 16:36:12,797 - INFO - Loaded config: region=[522, 321, 1209, 770], brightness_threshold=102.67477460829986, min_bright_pixels=0.24369859594181476
+2025-10-09 16:36:12,797 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 16:36:12,797 - INFO - Using saved calibration settings
+2025-10-09 16:36:13,190 - INFO - Starting iteration #1
+2025-10-09 16:36:13,191 - INFO - CTRL press/release #1
+2025-10-09 16:36:14,292 - INFO - CTRL press/release #2
+2025-10-09 16:36:15,392 - INFO - CTRL press/release #3
+2025-10-09 16:36:16,493 - INFO - CTRL press/release #4
+2025-10-09 16:36:17,594 - INFO - CTRL press/release #5
+2025-10-09 16:36:18,696 - INFO - Pressing SHIFT
+2025-10-09 16:36:18,949 - INFO - Loot check - brightness: 47.42, ratio: 0.04, threshold: 0.24, is_open: False
+2025-10-09 16:36:18,949 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:36:19,340 - INFO - Starting iteration #2
+2025-10-09 16:36:19,340 - INFO - CTRL press/release #1
+2025-10-09 16:36:20,442 - INFO - CTRL press/release #2
+2025-10-09 16:36:21,543 - INFO - CTRL press/release #3
+2025-10-09 16:36:22,644 - INFO - CTRL press/release #4
+2025-10-09 16:36:23,745 - INFO - CTRL press/release #5
+2025-10-09 16:36:24,846 - INFO - Pressing SHIFT
+2025-10-09 16:36:25,093 - INFO - Loot check - brightness: 141.82, ratio: 0.80, threshold: 0.24, is_open: True
+2025-10-09 16:36:25,093 - INFO - Loot window detected! Waiting 5 seconds before pressing ESC
+2025-10-09 16:36:30,093 - INFO - Pressing ESC to close the loot window
+2025-10-09 16:36:30,576 - INFO - Starting iteration #3
+2025-10-09 16:36:30,577 - INFO - CTRL press/release #1
+2025-10-09 16:36:31,678 - INFO - CTRL press/release #2
+2025-10-09 16:36:32,779 - INFO - CTRL press/release #3
+2025-10-09 16:36:33,880 - INFO - CTRL press/release #4
+2025-10-09 16:36:34,981 - INFO - CTRL press/release #5
+2025-10-09 16:36:36,082 - INFO - Pressing SHIFT
+2025-10-09 16:36:36,332 - INFO - Loot check - brightness: 139.03, ratio: 0.79, threshold: 0.24, is_open: True
+2025-10-09 16:36:36,332 - INFO - Loot window detected! Waiting 5 seconds before pressing ESC
+2025-10-09 16:36:41,333 - INFO - Pressing ESC to close the loot window
+2025-10-09 16:36:41,812 - INFO - Starting iteration #4
+2025-10-09 16:36:41,812 - INFO - CTRL press/release #1
+2025-10-09 16:36:42,913 - INFO - CTRL press/release #2
+2025-10-09 16:36:44,015 - INFO - CTRL press/release #3
+2025-10-09 16:36:45,116 - INFO - CTRL press/release #4
+2025-10-09 16:36:46,218 - INFO - CTRL press/release #5
+2025-10-09 16:36:47,319 - INFO - Pressing SHIFT
+2025-10-09 16:36:47,563 - INFO - Loot check - brightness: 139.00, ratio: 0.79, threshold: 0.24, is_open: True
+2025-10-09 16:36:47,564 - INFO - Loot window detected! Waiting 5 seconds before pressing ESC
+2025-10-09 16:36:52,565 - INFO - Pressing ESC to close the loot window
+2025-10-09 16:36:53,046 - INFO - Starting iteration #5
+2025-10-09 16:36:53,046 - INFO - CTRL press/release #1
+2025-10-09 16:36:54,147 - INFO - CTRL press/release #2
+2025-10-09 16:36:55,248 - INFO - CTRL press/release #3
+2025-10-09 16:36:56,349 - INFO - CTRL press/release #4
+2025-10-09 16:36:57,450 - INFO - CTRL press/release #5
+2025-10-09 16:36:58,551 - INFO - Pressing SHIFT
+2025-10-09 16:36:58,805 - INFO - Loot check - brightness: 45.12, ratio: 0.02, threshold: 0.24, is_open: False
+2025-10-09 16:36:58,806 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:36:59,188 - INFO - Starting iteration #6
+2025-10-09 16:36:59,189 - INFO - CTRL press/release #1
+2025-10-09 16:37:00,289 - INFO - CTRL press/release #2
+2025-10-09 16:37:01,391 - INFO - CTRL press/release #3
+2025-10-09 16:37:02,493 - INFO - CTRL press/release #4
+2025-10-09 16:37:03,594 - INFO - CTRL press/release #5
+2025-10-09 16:37:04,694 - INFO - Pressing SHIFT
+2025-10-09 16:37:04,953 - INFO - Loot check - brightness: 22.98, ratio: 0.03, threshold: 0.24, is_open: False
+2025-10-09 16:37:04,953 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:37:05,337 - INFO - Starting iteration #7
+2025-10-09 16:37:05,337 - INFO - CTRL press/release #1
+2025-10-09 16:37:06,439 - INFO - CTRL press/release #2
+2025-10-09 16:37:07,540 - INFO - CTRL press/release #3
+2025-10-09 16:37:08,642 - INFO - CTRL press/release #4
+2025-10-09 16:37:09,743 - INFO - CTRL press/release #5
+2025-10-09 16:37:10,844 - INFO - Pressing SHIFT
+2025-10-09 16:37:11,093 - INFO - Loot check - brightness: 60.34, ratio: 0.11, threshold: 0.24, is_open: False
+2025-10-09 16:37:11,093 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:37:11,515 - INFO - Starting iteration #8
+2025-10-09 16:37:11,516 - INFO - CTRL press/release #1
+2025-10-09 16:37:12,617 - INFO - CTRL press/release #2
+2025-10-09 16:37:13,719 - INFO - CTRL press/release #3
+2025-10-09 16:37:14,820 - INFO - CTRL press/release #4
+2025-10-09 16:37:15,921 - INFO - CTRL press/release #5
+2025-10-09 16:37:17,022 - INFO - Pressing SHIFT
+2025-10-09 16:37:17,316 - INFO - Loot check - brightness: 44.97, ratio: 0.02, threshold: 0.24, is_open: False
+2025-10-09 16:37:17,317 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:37:17,775 - INFO - Starting iteration #9
+2025-10-09 16:37:17,775 - INFO - CTRL press/release #1
+2025-10-09 16:37:18,877 - INFO - CTRL press/release #2
+2025-10-09 16:37:19,978 - INFO - CTRL press/release #3
+2025-10-09 16:37:21,080 - INFO - CTRL press/release #4
+2025-10-09 16:37:22,180 - INFO - CTRL press/release #5
+2025-10-09 16:37:23,281 - INFO - Pressing SHIFT
+2025-10-09 16:37:23,538 - INFO - Loot check - brightness: 44.50, ratio: 0.02, threshold: 0.24, is_open: False
+2025-10-09 16:37:23,538 - INFO - No loot window detected, continuing cycle
+2025-10-09 16:37:24,064 - INFO - Starting iteration #10
+2025-10-09 16:37:24,064 - INFO - CTRL press/release #1
+2025-10-09 16:37:25,165 - INFO - CTRL press/release #2
+2025-10-09 16:37:26,266 - INFO - CTRL press/release #3
+2025-10-09 16:37:27,368 - INFO - CTRL press/release #4
+2025-10-09 16:37:27,585 - INFO - Bot stopped by user
