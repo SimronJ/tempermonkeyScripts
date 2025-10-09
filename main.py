@@ -201,8 +201,8 @@ class TLOPOBot:
         self.window.post_key(hwnd, self.constants.VK_CONTROL, False)  # Release Ctrl
         time.sleep(1)  # Wait 1 second before checking for the boss
 
-        # Check if the boss is visible
-        if self.loot_detector.is_boss_visible():
+        # Check if the boss is visible and continue attacking until it's no longer visible
+        while self.loot_detector.is_boss_visible():
             logging.info("Boss detected! Attacking...")
             
             # Press Ctrl 5 times with 1-second intervals
@@ -211,8 +211,11 @@ class TLOPOBot:
                 time.sleep(0.1)  # Brief hold
                 self.window.post_key(hwnd, self.constants.VK_CONTROL, False)  # Release Ctrl
                 time.sleep(1)  # Wait 1 second before the next press
-        else:
-            logging.info("No boss detected, continuing cycle.")
+
+            # After attacking, check if the boss is still visible
+            if not self.loot_detector.is_boss_visible():
+                logging.info("Boss is no longer visible, stopping attack.")
+                break
 
         # Press Shift after Ctrl presses
         logging.info("Pressing Shift...")

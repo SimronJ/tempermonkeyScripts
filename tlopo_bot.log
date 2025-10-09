@@ -1,10 +1,8 @@
-2025-10-09 19:05:31,466 - INFO - Initializing LootDetector
-2025-10-09 19:05:31,474 - INFO - Loading configuration from bot_config.json
-2025-10-09 19:05:31,475 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
-2025-10-09 19:05:31,475 - INFO - Screenshot directory: screenshots
-2025-10-09 19:05:31,475 - INFO - Random cycle limit set to: 15
-2025-10-09 19:05:31,475 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
-2025-10-09 19:05:31,475 - INFO - Starting calibration process
-2025-10-09 19:05:31,476 - INFO - Using existing regions from configuration.
-2025-10-09 19:05:31,964 - INFO - Starting iteration #1
-2025-10-09 19:05:31,964 - INFO - Pressing Ctrl to start the cycle...
+2025-10-09 19:09:40,684 - INFO - Initializing LootDetector
+2025-10-09 19:09:40,685 - INFO - Loading configuration from bot_config.json
+2025-10-09 19:09:40,685 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-09 19:09:40,686 - INFO - Screenshot directory: screenshots
+2025-10-09 19:09:40,686 - INFO - Random cycle limit set to: 14
+2025-10-09 19:09:40,686 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-09 19:09:40,686 - INFO - Starting calibration process
+2025-10-09 19:09:40,687 - INFO - Using existing regions from configuration.
