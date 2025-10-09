@@ -1,101 +1,129 @@
 import time
-import threading
-import logging
-import pyautogui
-from pynput import keyboard
-import win32gui
-import win32con
+import ctypes
+from ctypes import wintypes
 
-from logger import setup_console_logging
-from config import WINDOW_TITLE, WINDOW_SIZE, WINDOW_POS
-from regions import REGIONS, load_calibration
-from calibration import calibrate_regions
-from detection import is_boss_present
-from actions import attack_loop, handle_chest
-
-# Globals
-attacking = False
-paused = False
-attack_thread = None
-
-def on_press(key):
-    global paused
-    try:
-        if key.char == 'p':
-            paused = not paused
-            print(f"Script {'paused' if paused else 'resumed'}.")
-    except AttributeError:
-        pass
-
-listener = keyboard.Listener(on_press=on_press)
-listener.start()
-
-def set_window_position():
-    hwnd = win32gui.FindWindow(None, WINDOW_TITLE)
-    if hwnd:
-        # SetWindowPos expects X, Y, width, height (not right/bottom)
-        win32gui.SetWindowPos(
-            hwnd,
-            win32con.HWND_TOP,
-            WINDOW_POS[0],
-            WINDOW_POS[1],
-            WINDOW_SIZE[0],
-            WINDOW_SIZE[1],
-            0
-        )
-        print("Window positioned and sized.")
-    else:
-        raise Exception("Game window not found. Ensure it's running and title matches.")
+try:
+    import psutil
+except ImportError:
+    raise SystemExit("Missing dependency: install with 'pip install psutil'")
 
 
-def main():
-    global attacking, attack_thread
-    set_window_position()
-    
-    # Add calibration check
-    if not load_calibration():
-        print("No calibration found. Starting calibration process...")
-        calibrate_regions()
-    
-    print("Starting auto-farm. Press 'p' to toggle pause. Top-left mouse to abort.")
-    
-    was_boss_present = False
-    
-    try:
-        while True:
-            if paused:
-                time.sleep(0.5)
-                continue
-            
-            boss_present = is_boss_present()
-            
-            if boss_present and not was_boss_present:
-                print("Boss appeared! Waiting 5s to attack...")
-                time.sleep(5)
-                attacking = True
-                attack_thread = threading.Thread(
-                    target=attack_loop,
-                    args=(lambda: attacking, lambda: paused)
-                )
-                attack_thread.start()
-            
-            elif not boss_present and was_boss_present:
-                print("Boss died! Stopping attack, waiting 1s for chest...")
-                attacking = False
-                if attack_thread:
-                    attack_thread.join()
-                time.sleep(1)
-                handle_chest()
-            
-            was_boss_present = boss_present
-            time.sleep(1)  # Check interval - adjust for responsiveness
-            
-    except pyautogui.FailSafeException:
-        print("Emergency stop.")
-    finally:
-        listener.stop()
+# Win32 constants
+WM_KEYDOWN = 0x0100
+WM_KEYUP = 0x0101
+VK_CONTROL = 0x11
+VK_SHIFT = 0x10
+VK_ESCAPE = 0x1B
 
-setup_console_logging()
+
+# Win32 bindings
+user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
+
+EnumWindows = user32.EnumWindows
+EnumWindows.argtypes = [ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM), wintypes.LPARAM]
+EnumWindows.restype = wintypes.BOOL
+
+GetWindowThreadProcessId = user32.GetWindowThreadProcessId
+GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+GetWindowThreadProcessId.restype = wintypes.DWORD
+
+IsWindowVisible = user32.IsWindowVisible
+IsWindowVisible.argtypes = [wintypes.HWND]
+IsWindowVisible.restype = wintypes.BOOL
+
+PostMessageW = user32.PostMessageW
+PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+PostMessageW.restype = wintypes.BOOL
+
+MapVirtualKeyW = user32.MapVirtualKeyW
+MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+MapVirtualKeyW.restype = wintypes.UINT
+
+
+def iter_process_windows(target_pid: int):
+    targets: list[int] = []
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+    def callback(hwnd: int, lparam: int) -> bool:
+        if not IsWindowVisible(hwnd):
+            return True
+        pid = wintypes.DWORD(0)
+        GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value == target_pid:
+            targets.append(hwnd)
+        return True
+
+    EnumWindows(callback, 0)
+    return targets
+
+
+def find_tlopo_hwnd() -> int | None:
+    for proc in psutil.process_iter(attrs=["pid", "name"]):
+        try:
+            name = (proc.info.get("name") or "").lower()
+            if name == "tlopo.exe":
+                hwnds = iter_process_windows(proc.info["pid"])  # visible top-level windows
+                if hwnds:
+                    return hwnds[0]
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return None
+
+
+def make_lparam(vk: int, key_up: bool) -> int:
+    scan_code = MapVirtualKeyW(vk, 0)
+    lparam = 1 | (scan_code << 16)
+    if key_up:
+        lparam |= (1 << 30) | (1 << 31)  # previous down + transition state
+    return lparam
+
+
+def post_key(hwnd: int, vk: int, down: bool) -> None:
+    msg = WM_KEYDOWN if down else WM_KEYUP
+    PostMessageW(hwnd, msg, vk, make_lparam(vk, key_up=not down))
+
+
+def press_and_hold_hwnd(hwnd: int, vk: int, seconds: float) -> None:
+    post_key(hwnd, vk, True)
+    time.sleep(seconds)
+    post_key(hwnd, vk, False)
+
+
+def main() -> None:
+    def now_ts() -> str:
+        return time.strftime("%Y-%m-%d %H:%M:%S")
+
+    print("Background loop targeting tlopo.exe window: Ctrl 2s -> Shift 3s -> Esc -> wait 5s (Ctrl+C to stop)")
+    iteration = 0
+    while True:
+        hwnd = find_tlopo_hwnd()
+        if not hwnd:
+            print(f"[{now_ts()}] tlopo.exe window not found; retrying in 1.0s")
+            time.sleep(1.0)
+            continue
+
+        iteration += 1
+        print(f"[{now_ts()}] Loop #{iteration} start")
+
+        print(f"[{now_ts()}] Holding CTRL for 2.0s")
+        press_and_hold_hwnd(hwnd, VK_CONTROL, 2.0)
+
+        print(f"[{now_ts()}] Holding SHIFT for 3.0s")
+        press_and_hold_hwnd(hwnd, VK_SHIFT, 3.0)
+
+        print(f"[{now_ts()}] Pressing ESC")
+        post_key(hwnd, VK_ESCAPE, True)
+        post_key(hwnd, VK_ESCAPE, False)
+
+        print(f"[{now_ts()}] Sleeping 5.0s")
+        time.sleep(5.0)
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+
+
