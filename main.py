@@ -226,8 +226,16 @@ class TLOPOBot:
 
         # Check if the loot chest is open
         if self.loot_detector.is_loot_window_open():
-            logging.info("Loot chest is open, waiting for 5 seconds...")
-            time.sleep(5)  # Wait for 5 seconds before pressing Esc
+            logging.info("Loot chest is open, clicking the loot button twice...")
+            loot_button_x = self.loot_detector.button_x  # Use the stored x coordinate
+            loot_button_y = self.loot_detector.button_y  # Use the stored y coordinate
+            
+            # Click the loot button twice
+            self.mouse_click(loot_button_x, loot_button_y)  # First click
+            time.sleep(5)  # Brief pause between clicks
+            self.mouse_click(loot_button_x, loot_button_y)  # Second click
+            
+            logging.info("Loot button clicked twice.")
         else:
             logging.info("Loot chest is not open, continuing cycle.")
 
@@ -245,9 +253,15 @@ class TLOPOBot:
             self.random_cycle_limit = random.randint(3, 20)  # Generate a new random limit
             logging.info(f"New random cycle limit set to: {self.random_cycle_limit}")
 
-        # Wait for 3 seconds before the next cycle
-        logging.info("Waiting for 3 seconds before the next cycle...")
-        time.sleep(3)
+        # Wait for 5 seconds before the next cycle
+        logging.info("Waiting for 5 seconds before the next cycle...")
+        time.sleep(5)
+
+    def mouse_click(self, x: int, y: int):
+        """Simulate a mouse click at the specified coordinates."""
+        self.window.win_api.user32.SetCursorPos(x, y)  # Move the cursor to the specified position
+        self.window.win_api.user32.mouse_event(0x0002, 0, 0, 0, 0)  # Mouse down
+        self.window.win_api.user32.mouse_event(0x0004, 0, 0, 0, 0)  # Mouse up
 
 class RegionSelector:
     """GUI tool for selecting screen regions from an image"""
@@ -327,6 +341,13 @@ class LootDetector:
         self.brightness_threshold = self.config.data.get('loot', {}).get('brightness_threshold', 150)
         self.min_bright_pixels = self.config.data.get('loot', {}).get('min_bright_pixels', 0.4)
 
+        # Load button coordinates and ensure only one pair is stored
+        button_coordinates = self.config.data.get('loot', {}).get('button_coordinates', [0, 0])
+        if len(button_coordinates) >= 2:
+            self.button_x, self.button_y = button_coordinates[0], button_coordinates[1]
+        else:
+            self.button_x, self.button_y = 0, 0  # Default values if not enough coordinates
+
         # Load boss configuration
         self.boss_detection_region = self.config.data.get('boss', {}).get('region')
         self.boss_brightness_threshold = self.config.data.get('boss', {}).get('brightness_threshold', 150)
@@ -372,11 +393,15 @@ class LootDetector:
         else:
             logging.info("Using existing screenshot for none visible.")
 
-        # Allow user to select regions from the same screenshot
+        # Allow user to select the loot region from the same screenshot
         self.region_selector = RegionSelector()
-        
-        # Select both regions from the same image
         self.region = self.region_selector.get_region_from_image(both_visible_image_path, "Select the region for loot detection")
+
+        # Prompt for button coordinates
+        button_coordinates = self.region_selector.get_region_from_image(both_visible_image_path, "Select the region for the loot button")
+        self.config.data['loot']['button_coordinates'] = button_coordinates
+
+        # Allow user to select the boss region
         self.boss_detection_region = self.region_selector.get_region_from_image(both_visible_image_path, "Select the region for boss detection")
 
         # Calculate thresholds based on the captured images
@@ -453,6 +478,7 @@ class LootDetector:
                 'region': self.region,
                 'brightness_threshold': self.brightness_threshold,
                 'min_bright_pixels': self.min_bright_pixels,
+                'button_coordinates': [self.button_x, self.button_y],  # Store only one pair
             },
             'boss': {
                 'region': self.boss_detection_region,

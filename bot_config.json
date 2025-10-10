@@ -1,19 +1,25 @@
 {
     "loot": {
         "region": [
-            525,
-            324,
-            1200,
-            772
+            529,
+            322,
+            1197,
+            770
         ],
         "brightness_threshold": 49.904381374782986,
-        "min_bright_pixels": 0.2628910319010417
+        "min_bright_pixels": 0.2628910319010417,
+        "button_coordinates": [
+            1038,
+            690,
+            1156,
+            728
+        ]
     },
     "boss": {
         "region": [
-            1058,
-            79,
-            1539,
+            1062,
+            93,
+            1547,
             193
         ],
         "brightness_threshold": 49.904381374782986,
