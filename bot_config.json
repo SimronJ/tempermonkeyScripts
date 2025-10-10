@@ -1,28 +1,26 @@
 {
     "loot": {
         "region": [
-            529,
-            322,
-            1197,
-            770
+            79,
+            165,
+            371,
+            360
         ],
-        "brightness_threshold": 49.904381374782986,
-        "min_bright_pixels": 0.2628910319010417,
+        "brightness_threshold": 195.62864379882814,
+        "min_bright_pixels": 0.72510986328125,
         "button_coordinates": [
             1038,
-            690,
-            1156,
-            728
+            690
         ]
     },
     "boss": {
         "region": [
-            1062,
-            93,
-            1547,
-            193
+            314,
+            59,
+            521,
+            105
         ],
-        "brightness_threshold": 49.904381374782986,
-        "min_bright_pixels": 0.22908854166666667
+        "brightness_threshold": 195.62864379882814,
+        "min_bright_pixels": 0.7247892252604167
     }
 }
