@@ -1,262 +1,365 @@
 # filepath: e:\github_clone\Tlopo_Boss_AutoFarm\screenshottoapi.py
-import pyautogui
-import requests
-import time
-from dotenv import load_dotenv
 import os
-from PIL import Image, ImageDraw, ImageFont
-import keyboard
+import time
+import json
 import logging
-from datetime import datetime
+import requests
+import pyautogui
+import keyboard
+import psutil
+from dotenv import load_dotenv
+from PIL import Image, ImageDraw, ImageFont
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Win32 focus helpers
+import win32gui
+import win32process
+import win32con
 
-# Load environment variables from .env file
+# -------------------- Config --------------------
 load_dotenv()
-
-# Configuration
 API_URL = os.getenv("API_URL")
+
+PROCESS_NAME = "tlopo.exe"
+
+# Detection thresholds
+ENEMY_CLASS = "enemy"
 ENEMY_CONFIDENCE_THRESHOLD = 0.8
-ATTACK_DELAY = 0.5
-LOOT_CLICK_COUNT = 2
-SCREENSHOT_INTERVAL = 1
+LEGENDARY_CLASS = "legendary"
+LEGENDARY_MIN_CONF = 0.1
+FAME_CLASS = "fame"
+FAME_MIN_CONF = 0.2
+SS_CLASS = "ss"
+SS_MIN_CONF = 0.2
+
+# Timings
+API_POLL_INTERVAL = 5.0         # seconds between main polls
+CTRL_PRESS_INTERVAL = 1.0       # seconds between ctrl presses while enemy present
+LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check
+MAINT_INTERVAL = 45.0           # periodic Esc+Ctrl
+
+# Files
+SCREENSHOT_FILENAME = "screenshot.png"
+LABELED_FILENAME = "labeled_screenshot.png"
+STATE_FILE = "state.json"
+
+# Drawing
 FONT_SIZE = 24
-SCREENSHOT_FILENAME = "screenshot.png"        # always overwrite this file
-LABELED_FILENAME = "labeled_screenshot.png"   # always overwrite this file
-
-# Validate configuration
-if not API_URL:
-    logger.error("API_URL not found in .env file")
-    exit(1)
-
-logger.info(f"API URL: {API_URL}")
-
-# Color scheme for different classes
 CLASS_COLORS = {
-    'enemy': 'green',
+    ENEMY_CLASS: 'green',
     'LootTakeButton': 'blue',
     'LootExitIcon': 'orange',
-    'TrashIcon': 'purple'
+    'TrashIcon': 'purple',
+    LEGENDARY_CLASS: 'gold',
+    FAME_CLASS: 'cyan',
+    SS_CLASS: 'magenta',
 }
 
+# Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("tlopo-bot")
+
+if not API_URL:
+    logger.error("API_URL not found in .env")
+    raise SystemExit(1)
+
+# -------------------- Window focus helpers --------------------
+def _enum_windows_for_pid(pid):
+    result = []
+    def callback(hwnd, _):
+        if win32gui.IsWindowVisible(hwnd):
+            _, w_pid = win32process.GetWindowThreadProcessId(hwnd)
+            if w_pid == pid:
+                result.append(hwnd)
+    win32gui.EnumWindows(callback, None)
+    return result
+
+def find_tlopo_hwnd():
+    for p in psutil.process_iter(attrs=["pid", "name"]):
+        try:
+            if p.info["name"] and p.info["name"].lower() == PROCESS_NAME.lower():
+                hwnds = _enum_windows_for_pid(p.info["pid"])
+                if hwnds:
+                    logger.info(f"Found tlopo.exe window: hwnd={hwnds[0]}")
+                    return hwnds[0]
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    logger.warning("tlopo.exe window not found")
+    return None
+
+def focus_hwnd(hwnd):
+    try:
+        # Only restore if minimized to avoid window size changes
+        if win32gui.IsIconic(hwnd):
+            logger.info("Window is minimized; restoring")
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        # Do not force ShowWindow for normal/maximized windows to prevent resize
+        win32gui.SetForegroundWindow(hwnd)
+        logger.info("Focused tlopo.exe window")
+        return True
+    except Exception as e:
+        logger.debug(f"Focus failed: {e}")
+        return False
+
+# -------------------- Bot --------------------
 class GameBot:
     def __init__(self):
-        self.screenshot_count = 0
-        self.enemies_defeated = 0
-        self.loot_collected = 0
-        
-    def click_position(self, x, y, action_type="generic"):
-        """Click at the specified coordinates"""
-        center_x = int(x)
-        center_y = int(y)
-        
+        self.last_api_time = 0.0
+        self.last_ctrl_time = 0.0
+        self.last_maint_time = 0.0
+        self.enemy_active = False
+        self.hwnd = None
+        self.state = self.load_state()
+        # Ensure state file exists immediately
+        self.save_state()
+        logger.info(f"State loaded: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
+
+    # ---------- State ----------
+    def load_state(self):
+        if os.path.exists(STATE_FILE):
+            try:
+                with open(STATE_FILE, "r", encoding="utf-8") as f:
+                    d = json.load(f)
+                return {
+                    "bosses_defeated": int(d.get("bosses_defeated", 0)),
+                    "chests_opened": int(d.get("chests_opened", 0)),
+                    "last_updated": d.get("last_updated", "")
+                }
+            except Exception as e:
+                logger.warning(f"Failed to read {STATE_FILE}: {e}")
+        logger.info("State file not found; initializing new state")
+        return {"bosses_defeated": 0, "chests_opened": 0, "last_updated": ""}
+
+    def save_state(self):
+        self.state["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         try:
-            pyautogui.click(center_x, center_y)
-            logger.info(f"{action_type} click at: ({center_x}, {center_y})")
-            return True
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.state, f, indent=2)
+            logger.info(f"State saved: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
         except Exception as e:
-            logger.error(f"Failed to click at ({center_x}, {center_y}): {e}")
-            return False
+            logger.error(f"Failed to write {STATE_FILE}: {e}")
+
+    # ---------- Focused inputs ----------
+    def ensure_focus(self):
+        if not self.hwnd or not win32gui.IsWindow(self.hwnd):
+            self.hwnd = find_tlopo_hwnd()
+        if self.hwnd:
+            return focus_hwnd(self.hwnd)
+        return False
+
+    def press_key(self, key, reason=None):
+        if self.ensure_focus():
+            try:
+                pyautogui.press(key)
+                if reason:
+                    logger.info(f"Pressed key '{key}' - reason: {reason}")
+                else:
+                    logger.info(f"Pressed key '{key}'")
+                return True
+            except Exception as e:
+                logger.error(f"Key press failed ({key}): {e}")
+        else:
+            logger.warning(f"Skipped key '{key}' - tlopo window not focused/found")
+        return False
+
+    def click_center(self, cx, cy, label="click"):
+        if self.ensure_focus():
+            try:
+                x, y = int(cx), int(cy)
+                pyautogui.click(x, y)
+                logger.info(f"Click '{label}' at ({x}, {y})")
+                return True
+            except Exception as e:
+                logger.error(f"Click failed at ({cx},{cy}): {e}")
+        else:
+            logger.warning(f"Skipped click '{label}' - tlopo window not focused/found")
+        return False
+
+    # ---------- Vision ----------
+    def take_screenshot(self):
+        logger.info("Capturing screenshot")
+        shot = pyautogui.screenshot()
+        shot.save(SCREENSHOT_FILENAME)
+        return shot
+
+    def analyze(self):
+        try:
+            img = Image.open(SCREENSHOT_FILENAME)
+            width, height = img.size
+            logger.info(f"Sending screenshot to API (size={width}x{height})")
+            t0 = time.perf_counter()
+            with open(SCREENSHOT_FILENAME, "rb") as f:
+                resp = requests.post(API_URL, files={"file": f}, timeout=10)
+            elapsed = (time.perf_counter() - t0) * 1000.0
+            if resp.status_code != 200:
+                logger.warning(f"API {resp.status_code} in {elapsed:.1f} ms: {resp.text[:200]}")
+                img.close()
+                return []
+            data = resp.json()
+            preds = data.get("predictions", [])
+            logger.info(f"API ok in {elapsed:.1f} ms - detections={len(preds)}")
+            # labeled image
+            labeled = self.draw_detections(img.copy(), preds)
+            labeled.save(LABELED_FILENAME)
+            img.close()
+            logger.info("Updated labeled_screenshot.png")
+            return preds
+        except Exception as e:
+            logger.error(f"Analyze error: {e}")
+            return []
 
     def draw_detections(self, image, predictions):
-        """Draw bounding boxes and labels on the image"""
         draw = ImageDraw.Draw(image)
-        
         try:
             font = ImageFont.truetype("arial.ttf", FONT_SIZE)
         except OSError:
-            # Fallback to default font if arial.ttf is not available
             font = ImageFont.load_default()
-            logger.warning("Arial font not found, using default font")
 
-        for pred in predictions:
-            # Get color for the class
-            color = CLASS_COLORS.get(pred['class'], 'yellow')
+        for p in predictions:
+            cls = p.get('class', '')
+            color = CLASS_COLORS.get(cls, 'yellow')
+            cx = int(p.get('x', 0))
+            cy = int(p.get('y', 0))
+            w = int(p.get('width', 0))
+            h = int(p.get('height', 0))
+            x1, y1 = cx - w // 2, cy - h // 2
+            x2, y2 = cx + w // 2, cy + h // 2
 
-            # Calculate bounding box coordinates
-            center_x = int(pred['x'])
-            center_y = int(pred['y'])
-            width = int(pred['width'])
-            height = int(pred['height'])
-            
-            x1 = center_x - width // 2
-            y1 = center_y - height // 2
-            x2 = center_x + width // 2
-            y2 = center_y + height // 2
-            
-            # Draw rectangle
             draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
-
-            # Create label with confidence
-            confidence_percent = pred['confidence'] * 100
-            label = f"{pred['class']} ({confidence_percent:.1f}%)"
-            
-            # Draw label background for better visibility
-            bbox = draw.textbbox((x1, y1 - 30), label, font=font)
-            draw.rectangle(bbox, fill='black', outline='white')
-            draw.text((x1, y1 - 30), label, fill="#FF0000", font=font)
-
+            conf = p.get('confidence', 0.0) * 100
+            label = f"{cls} ({conf:.1f}%)"
+            try:
+                bbox = draw.textbbox((x1, max(0, y1 - 28)), label, font=font)
+                draw.rectangle(bbox, fill="black")
+            except Exception:
+                pass
+            draw.text((x1, max(0, y1 - 28)), label, fill="#FF0000", font=font)
         return image
 
-    def take_screenshot_and_analyze(self):
-        """Take screenshot, send to API, and return predictions"""
-        try:
-            # Take screenshot
-            screenshot = pyautogui.screenshot()
-            screenshot.save(SCREENSHOT_FILENAME)  # overwrite the same file
-            self.screenshot_count += 1
+    # ---------- Filters ----------
+    def have_enemy(self, preds):
+        enemies = [p for p in preds if p.get('class') == ENEMY_CLASS and p.get('confidence', 0.0) >= ENEMY_CONFIDENCE_THRESHOLD]
+        if enemies:
+            top_conf = max(p['confidence'] for p in enemies) * 100
+            logger.info(f"Enemy present - count={len(enemies)} top_conf={top_conf:.1f}%")
+        else:
+            logger.info("No enemy present")
+        return len(enemies) > 0
 
-            # Send to API
-            with open(SCREENSHOT_FILENAME, "rb") as image_file:
-                response = requests.post(API_URL, files={"file": image_file}, timeout=10)
-                
-            if response.status_code != 200:
-                logger.error(f"API request failed with status {response.status_code}")
-                return []
+    def find_first(self, preds, cls_name):
+        for p in preds:
+            if p.get('class') == cls_name:
+                return p
+        return None
 
-            data = response.json()
-            predictions = data.get('predictions', [])
-            
-            # Log detection summary
-            detection_summary = {}
-            for pred in predictions:
-                class_name = pred['class']
-                detection_summary[class_name] = detection_summary.get(class_name, 0) + 1
-            
-            if detection_summary:
-                logger.info(f"Detected: {detection_summary}")
-            
-            # Save labeled screenshot (overwrite)
-            if predictions:
-                labeled_image = self.draw_detections(screenshot.copy(), predictions)
-                labeled_image.save(LABELED_FILENAME)
-            
-            return predictions
-            
-        except requests.exceptions.Timeout:
-            logger.error("API request timeout")
-            return []
-        except Exception as e:
-            logger.error(f"Error in screenshot analysis: {e}")
-            return []
+    def find_items(self, preds):
+        has_legendary = any(p.get('class') == LEGENDARY_CLASS and p.get('confidence', 0.0) >= LEGENDARY_MIN_CONF for p in preds)
+        has_fame = any(p.get('class') == FAME_CLASS and p.get('confidence', 0.0) >= FAME_MIN_CONF for p in preds)
+        ss_obj = next((p for p in preds if p.get('class') == SS_CLASS and p.get('confidence', 0.0) >= SS_MIN_CONF), None)
+        if has_legendary or has_fame or ss_obj:
+            logger.info(f"Items detected - legendary>={LEGENDARY_MIN_CONF}, fame>={FAME_MIN_CONF}, ss>={SS_MIN_CONF}: "
+                        f"legendary={has_legendary} fame={has_fame} ss={'yes' if ss_obj else 'no'}")
+        else:
+            logger.info("No target items detected")
+        return has_legendary, has_fame, ss_obj
 
-    def filter_high_confidence_enemies(self, predictions):
-        """Filter enemies with confidence above threshold"""
-        return [pred for pred in predictions 
-                if pred['class'] == 'enemy' and pred['confidence'] > ENEMY_CONFIDENCE_THRESHOLD]
-
-    def get_loot_buttons(self, predictions):
-        """Get loot take buttons from predictions"""
-        return [pred for pred in predictions if pred['class'] == 'LootTakeButton']
-
-    def attack_enemies(self, enemies):
-        """Attack enemies until they're defeated"""
-        if not enemies:
-            return
-            
-        logger.info(f"Starting attack on {len(enemies)} high confidence enemies")
-        
-        # Attack the first enemy
-        target = enemies[0]
-        target_x, target_y = target['x'], target['y']
-        
-        attack_count = 0
-        max_attacks = 50  # Prevent infinite loops
-        
-        while attack_count < max_attacks:
-            # Check for quit signal
-            if keyboard.is_pressed('q'):
-                logger.info("Quit signal received during combat")
-                return False
-            
-            # Attack the enemy
-            if self.click_position(target_x, target_y, "Attack"):
-                attack_count += 1
-                
-            time.sleep(ATTACK_DELAY)
-            
-            # Check if enemies are still present
-            current_predictions = self.take_screenshot_and_analyze()
-            current_enemies = self.filter_high_confidence_enemies(current_predictions)
-            
-            if not current_enemies:
-                logger.info(f"Enemy defeated after {attack_count} attacks")
-                self.enemies_defeated += 1
-                
-                # Press Shift after defeating enemy
-                pyautogui.press('shift')
-                logger.info("Pressed Shift key after combat")
-                return True
-                
-        logger.warning(f"Max attacks ({max_attacks}) reached, stopping attack")
-        return True
-
-    def collect_loot(self, loot_buttons):
-        """Collect loot by clicking loot buttons"""
-        if not loot_buttons:
-            return
-            
-        logger.info(f"Collecting loot from {len(loot_buttons)} buttons")
-        
-        for loot_button in loot_buttons:
-            for i in range(LOOT_CLICK_COUNT):
-                if self.click_position(loot_button['x'], loot_button['y'], "Loot"):
-                    time.sleep(0.2)
-                    
-        self.loot_collected += len(loot_buttons)
-
-    def print_statistics(self):
-        """Print bot statistics"""
-        logger.info(f"Statistics - Screenshots: {self.screenshot_count}, "
-                   f"Enemies defeated: {self.enemies_defeated}, "
-                   f"Loot collected: {self.loot_collected}")
-
+    # ---------- Main loop ----------
     def run(self):
-        """Main bot loop"""
-        logger.info("Starting Tlopo Boss AutoFarm Bot")
-        logger.info("Press 'q' to quit at any time")
-        
-        try:
-            while True:
-                # Check for quit signal
-                if keyboard.is_pressed('q'):
-                    logger.info("Quit signal received")
-                    break
+        logger.info("Starting bot. Press 'q' to quit.")
+        # Initial poll
+        self.take_screenshot()
+        preds = self.analyze()
+        self.last_api_time = time.time()
+        self.enemy_active = self.have_enemy(preds)
 
-                # Take screenshot and analyze
-                predictions = self.take_screenshot_and_analyze()
-                
-                if not predictions:
-                    time.sleep(SCREENSHOT_INTERVAL)
-                    continue
-                
-                # Check for enemies
-                enemies = self.filter_high_confidence_enemies(predictions)
-                
-                # Check for loot
-                loot_buttons = self.get_loot_buttons(predictions)
+        last_loot_btn_center = None
+        last_loot_btn_conf = None
+        last_trash_conf = None
 
-                # Priority: Attack enemies first, then collect loot
-                if enemies:
-                    if not self.attack_enemies(enemies):
-                        break  # Quit signal received
-                elif loot_buttons:
-                    self.collect_loot(loot_buttons)
-                else:
-                    logger.info("No targets detected, scanning...")
+        while True:
+            if keyboard.is_pressed('q'):
+                logger.info("Quit requested.")
+                break
 
-                # Wait before next iteration
-                time.sleep(SCREENSHOT_INTERVAL)
-                
-        except KeyboardInterrupt:
-            logger.info("Bot stopped by user")
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-        finally:
-            self.print_statistics()
-            logger.info("Bot shutdown complete")
+            now = time.time()
+
+            # Press Ctrl every second while enemy is active (based on last poll)
+            if self.enemy_active and (now - self.last_ctrl_time) >= CTRL_PRESS_INTERVAL:
+                self.press_key('ctrl', reason="enemy active - attack tick")
+                self.last_ctrl_time = now
+
+            # Periodic maintenance keys (Esc then Ctrl) - avoid resizing (no forced ShowWindow)
+            if (now - self.last_maint_time) >= MAINT_INTERVAL:
+                logger.info("Maintenance keys: Esc then Ctrl")
+                self.press_key('esc', reason="maintenance")
+                time.sleep(0.1)
+                self.press_key('ctrl', reason="maintenance")
+                self.last_maint_time = now
+
+            # Poll API on interval
+            if (now - self.last_api_time) >= API_POLL_INTERVAL:
+                self.take_screenshot()
+                preds = self.analyze()
+                self.last_api_time = now
+
+                enemy_now = self.have_enemy(preds)
+
+                # Transition: enemy defeated
+                if self.enemy_active and not enemy_now:
+                    self.state["bosses_defeated"] += 1
+                    self.save_state()
+                    logger.info(f"Enemy defeated. Total bosses_defeated={self.state['bosses_defeated']}")
+                    # Post-fight action
+                    self.press_key('shift', reason="post-fight")
+
+                self.enemy_active = enemy_now
+
+                # If no enemy, handle loot
+                if not self.enemy_active:
+                    loot_btn = self.find_first(preds, 'LootTakeButton')
+                    trash_icon = self.find_first(preds, 'TrashIcon')
+
+                    if loot_btn and trash_icon:
+                        # First click LootTakeButton
+                        lx, ly = int(loot_btn['x']), int(loot_btn['y'])
+                        last_loot_btn_center = (lx, ly)
+                        last_loot_btn_conf = loot_btn.get('confidence', 0.0) * 100
+                        last_trash_conf = trash_icon.get('confidence', 0.0) * 100
+                        logger.info(f"Clicking LootTakeButton (conf={last_loot_btn_conf:.1f}%) "
+                                    f"with TrashIcon present (conf={last_trash_conf:.1f}%)")
+                        self.click_center(lx, ly, label="LootTakeButton (1st)")
+
+                        # Wait then re-check (one extra poll for loot step)
+                        time.sleep(LOOT_RECHECK_DELAY)
+                        self.take_screenshot()
+                        preds2 = self.analyze()
+                        self.last_api_time = time.time()  # reset poll timer after extra poll
+
+                        has_legendary, has_fame, ss_obj = self.find_items(preds2)
+
+                        if has_legendary or has_fame or ss_obj:
+                            # Click LootTakeButton again at same spot
+                            if last_loot_btn_center:
+                                logger.info("Special item detected; clicking LootTakeButton again")
+                                self.click_center(last_loot_btn_center[0], last_loot_btn_center[1], label="LootTakeButton (2nd)")
+                            # If ss present, click its center too
+                            if ss_obj:
+                                logger.info(f"Clicking SS item at center (conf={ss_obj.get('confidence',0.0)*100:.1f}%)")
+                                self.click_center(ss_obj['x'], ss_obj['y'], label="Select SS")
+                        else:
+                            # No special items; if trash still visible, click it
+                            trash2 = self.find_first(preds2, 'TrashIcon')
+                            if trash2:
+                                logger.info(f"No special items; clicking TrashIcon (conf={trash2.get('confidence',0.0)*100:.1f}%)")
+                                self.click_center(trash2['x'], trash2['y'], label="Trash")
+
+                        self.state["chests_opened"] += 1
+                        self.save_state()
+                        logger.info(f"Chest handled. Total chests_opened={self.state['chests_opened']}")
+
+            time.sleep(0.05)  # prevent busy-wait
+
+        logger.info("Bot stopped.")
+        logger.info(f"Final state: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
 
 if __name__ == "__main__":
     bot = GameBot()
