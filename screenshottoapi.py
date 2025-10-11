@@ -36,8 +36,11 @@ SS_MIN_CONF = 0.2
 API_POLL_INTERVAL = 5.0         # seconds between main polls
 CTRL_PRESS_INTERVAL = 1.0       # seconds between ctrl presses while enemy present
 LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check  # (kept but no longer used)
-MAINT_INTERVAL = 45.0           # periodic Esc+Ctrl
-LOOT_KEEP_OPEN = 2.0            # NEW: keep chest open for 2s
+MAINT_INTERVAL = 120.0          # periodic Esc+Ctrl (every 2 minutes)
+LOOT_KEEP_OPEN = 2.0            # keep chest open for 2s
+
+# No-enemy fallback
+ENEMY_ABSENCE_CTRL_THRESHOLD = 5  # press Ctrl if no enemy for N polls
 
 # Files
 SCREENSHOT_FILENAME = "screenshot.png"
@@ -115,6 +118,8 @@ class GameBot:
         # Ensure state file exists immediately
         self.save_state()
         logger.info(f"State loaded: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
+
+        self.no_enemy_count = 0   # NEW: consecutive no-enemy polls counter
 
     # ---------- State ----------
     def load_state(self):
@@ -315,7 +320,19 @@ class GameBot:
 
                 self.enemy_active = enemy_now
 
-                # If no enemy, handle loot (NO extra screenshot; reuse preds and labeled image)
+                # Track no-enemy streak and press Ctrl if threshold reached
+                if not self.enemy_active:
+                    self.no_enemy_count += 1
+                    logger.info(f"No-enemy streak: {self.no_enemy_count}/{ENEMY_ABSENCE_CTRL_THRESHOLD}")
+                    if self.no_enemy_count >= ENEMY_ABSENCE_CTRL_THRESHOLD:
+                        self.press_key('ctrl', reason=f"no enemy for {self.no_enemy_count} polls")
+                        self.no_enemy_count = 0
+                else:
+                    if self.no_enemy_count:
+                        logger.info("Enemy detected again, resetting no-enemy streak")
+                    self.no_enemy_count = 0
+
+                # If no enemy, handle loot (reuse preds)
                 if not self.enemy_active:
                     loot_btn = self.find_first(preds, 'LootTakeButton')
                     trash_icon = self.find_first(preds, 'TrashIcon')
