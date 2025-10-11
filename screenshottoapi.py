@@ -7,6 +7,7 @@ import requests
 import pyautogui
 import keyboard
 import psutil
+import shutil  # NEW
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 
@@ -34,13 +35,15 @@ SS_MIN_CONF = 0.2
 # Timings
 API_POLL_INTERVAL = 5.0         # seconds between main polls
 CTRL_PRESS_INTERVAL = 1.0       # seconds between ctrl presses while enemy present
-LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check
+LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check  # (kept but no longer used)
 MAINT_INTERVAL = 45.0           # periodic Esc+Ctrl
+LOOT_KEEP_OPEN = 2.0            # NEW: keep chest open for 2s
 
 # Files
 SCREENSHOT_FILENAME = "screenshot.png"
 LABELED_FILENAME = "labeled_screenshot.png"
 STATE_FILE = "state.json"
+CHEST_SHOT_DIR = "chestScreenShot"  # NEW
 
 # Drawing
 FONT_SIZE = 24
@@ -287,7 +290,7 @@ class GameBot:
                 self.press_key('ctrl', reason="enemy active - attack tick")
                 self.last_ctrl_time = now
 
-            # Periodic maintenance keys (Esc then Ctrl) - avoid resizing (no forced ShowWindow)
+            # Periodic maintenance keys (Esc then Ctrl)
             if (now - self.last_maint_time) >= MAINT_INTERVAL:
                 logger.info("Maintenance keys: Esc then Ctrl")
                 self.press_key('esc', reason="maintenance")
@@ -308,50 +311,60 @@ class GameBot:
                     self.state["bosses_defeated"] += 1
                     self.save_state()
                     logger.info(f"Enemy defeated. Total bosses_defeated={self.state['bosses_defeated']}")
-                    # Post-fight action
                     self.press_key('shift', reason="post-fight")
 
                 self.enemy_active = enemy_now
 
-                # If no enemy, handle loot
+                # If no enemy, handle loot (NO extra screenshot; reuse preds and labeled image)
                 if not self.enemy_active:
                     loot_btn = self.find_first(preds, 'LootTakeButton')
                     trash_icon = self.find_first(preds, 'TrashIcon')
 
                     if loot_btn and trash_icon:
-                        # First click LootTakeButton
-                        lx, ly = int(loot_btn['x']), int(loot_btn['y'])
-                        last_loot_btn_center = (lx, ly)
+                        # Log confidences
                         last_loot_btn_conf = loot_btn.get('confidence', 0.0) * 100
                         last_trash_conf = trash_icon.get('confidence', 0.0) * 100
-                        logger.info(f"Clicking LootTakeButton (conf={last_loot_btn_conf:.1f}%) "
-                                    f"with TrashIcon present (conf={last_trash_conf:.1f}%)")
-                        self.click_center(lx, ly, label="LootTakeButton (1st)")
+                        logger.info(f"Chest open detected: LootTakeButton conf={last_loot_btn_conf:.1f}%, "
+                                    f"TrashIcon conf={last_trash_conf:.1f}%")
 
-                        # Wait then re-check (one extra poll for loot step)
-                        time.sleep(LOOT_RECHECK_DELAY)
-                        self.take_screenshot()
-                        preds2 = self.analyze()
-                        self.last_api_time = time.time()  # reset poll timer after extra poll
+                        # Determine items (using current preds)
+                        has_legendary, has_fame, ss_obj = self.find_items(preds)
+                        is_special = has_legendary or has_fame
 
-                        has_legendary, has_fame, ss_obj = self.find_items(preds2)
+                        # Archive labeled screenshot
+                        try:
+                            os.makedirs(CHEST_SHOT_DIR, exist_ok=True)
+                            ts = time.strftime("%Y%m%d_%H%M%S")
+                            base = "special" if is_special else "noSpecial"
+                            target_path = os.path.join(CHEST_SHOT_DIR, f"{base}_{ts}.png")
+                            shutil.copyfile(LABELED_FILENAME, target_path)
+                            logger.info(f"Archived chest screenshot: {target_path}")
+                        except Exception as e:
+                            logger.warning(f"Failed to archive chest screenshot: {e}")
 
-                        if has_legendary or has_fame or ss_obj:
-                            # Click LootTakeButton again at same spot
-                            if last_loot_btn_center:
-                                logger.info("Special item detected; clicking LootTakeButton again")
-                                self.click_center(last_loot_btn_center[0], last_loot_btn_center[1], label="LootTakeButton (2nd)")
-                            # If ss present, click its center too
-                            if ss_obj:
-                                logger.info(f"Clicking SS item at center (conf={ss_obj.get('confidence',0.0)*100:.1f}%)")
-                                self.click_center(ss_obj['x'], ss_obj['y'], label="Select SS")
+                        # Click LootTakeButton once
+                        lx, ly = int(loot_btn['x']), int(loot_btn['y'])
+                        last_loot_btn_center = (lx, ly)
+                        logger.info(f"Clicking LootTakeButton (conf={last_loot_btn_conf:.1f}%)")
+                        self.click_center(lx, ly, label="LootTakeButton")
+
+                        # If ss detected, click its center once
+                        if ss_obj:
+                            logger.info(f"SS detected (conf={ss_obj.get('confidence',0.0)*100:.1f}%) - clicking SS")
+                            self.click_center(ss_obj['x'], ss_obj['y'], label="Select SS")
+
+                        # Keep chest open for 2 seconds
+                        logger.info(f"Holding chest open for {LOOT_KEEP_OPEN:.1f}s")
+                        time.sleep(LOOT_KEEP_OPEN)
+
+                        # If no special items, click TrashIcon
+                        if not is_special:
+                            logger.info(f"No special items; clicking TrashIcon (conf={last_trash_conf:.1f}%)")
+                            self.click_center(trash_icon['x'], trash_icon['y'], label="TrashIcon")
                         else:
-                            # No special items; if trash still visible, click it
-                            trash2 = self.find_first(preds2, 'TrashIcon')
-                            if trash2:
-                                logger.info(f"No special items; clicking TrashIcon (conf={trash2.get('confidence',0.0)*100:.1f}%)")
-                                self.click_center(trash2['x'], trash2['y'], label="Trash")
+                            logger.info("Special item detected (fame/legendary); skipping TrashIcon")
 
+                        # Update state
                         self.state["chests_opened"] += 1
                         self.save_state()
                         logger.info(f"Chest handled. Total chests_opened={self.state['chests_opened']}")
