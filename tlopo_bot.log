@@ -1,16 +1,7 @@
-2025-10-10 15:03:55,710 - INFO - Initializing LootDetector
-2025-10-10 15:03:55,710 - INFO - Loading configuration from bot_config.json
-2025-10-10 15:03:55,710 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
-2025-10-10 15:03:55,711 - INFO - Screenshot directory: screenshots
-2025-10-10 15:03:55,711 - INFO - Random cycle limit set to: 3
-2025-10-10 15:03:55,711 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
-2025-10-10 15:03:55,711 - INFO - Starting calibration process
-2025-10-10 15:04:03,805 - INFO - Please ensure both the loot chest and boss is visible, then press OK.
-2025-10-10 15:04:04,289 - INFO - Screenshot saved: both_visible.png
-2025-10-10 15:04:25,113 - INFO - Please ensure neither the loot chest nor the boss is visible, then press OK.
-2025-10-10 15:04:25,568 - INFO - Screenshot saved: none_visible.png
-2025-10-10 15:04:25,646 - INFO - Starting region selection from image...
-2025-10-10 15:04:33,282 - INFO - Region selected: (611, 756, 637, 761)
-2025-10-10 15:04:33,299 - INFO - Returning selected region: (611, 756, 637, 761)
-2025-10-10 15:04:33,300 - INFO - Starting region selection from image...
-2025-10-10 15:04:39,182 - INFO - Bot stopped by user
+2025-10-10 23:44:25,375 - INFO - Initializing LootDetector
+2025-10-10 23:44:25,375 - INFO - Loading configuration from bot_config.json
+2025-10-10 23:44:25,376 - INFO - Config initialized with path: E:\github_clone\Tlopo_Boss_AutoFarm\bot_config.json
+2025-10-10 23:44:25,376 - INFO - Screenshot directory: screenshots
+2025-10-10 23:44:25,376 - INFO - Random cycle limit set to: 10
+2025-10-10 23:44:25,376 - INFO - Starting TLOPO Bot - Press Ctrl+C to stop
+2025-10-10 23:44:25,376 - INFO - Starting calibration process

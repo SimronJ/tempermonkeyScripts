@@ -368,28 +368,61 @@ class LootDetector:
         screenshot.save(os.path.join(self.screenshot_dir, filename))
         logging.info(f"Screenshot saved: {filename}")
 
+    def _check_and_handle_existing_screenshots(self):
+        """Check for existing screenshots and ask user if they want to delete them."""
+        both_visible_path = os.path.join(self.screenshot_dir, "both_visible.png")
+        none_visible_path = os.path.join(self.screenshot_dir, "none_visible.png")
+        
+        existing_screenshots = []
+        if os.path.exists(both_visible_path):
+            existing_screenshots.append("both_visible.png")
+        if os.path.exists(none_visible_path):
+            existing_screenshots.append("none_visible.png")
+        
+        if existing_screenshots:
+            message = f"Found existing screenshots: {', '.join(existing_screenshots)}\n\nDo you want to delete them and take new ones?"
+            result = messagebox.askyesno("Existing Screenshots Found", message)
+            
+            if result:  # User clicked Yes
+                for screenshot in existing_screenshots:
+                    screenshot_path = os.path.join(self.screenshot_dir, screenshot)
+                    try:
+                        os.remove(screenshot_path)
+                        logging.info(f"Deleted existing screenshot: {screenshot}")
+                    except OSError as e:
+                        logging.error(f"Failed to delete {screenshot}: {e}")
+                return True  # Need to take new screenshots
+            else:
+                logging.info("User chose to keep existing screenshots")
+                return False  # Use existing screenshots
+        
+        return True  # No existing screenshots, need to take new ones
+
     def calibrate(self, force: bool = False):
         """Let user select the region to monitor for loot and boss detection"""
         logging.info("Starting calibration process")
 
-        # Check if regions are already defined
+        # Check if regions are already defined and not forcing recalibration
         if self.region and self.boss_detection_region and not force:
             logging.info("Using existing regions from configuration.")
-            return  # Skip calibration if regions are already defined
+            return
+
+        # Check for existing screenshots and handle them
+        need_new_screenshots = self._check_and_handle_existing_screenshots()
 
         both_visible_image_path = os.path.join(self.screenshot_dir, "both_visible.png")
         none_visible_image_path = os.path.join(self.screenshot_dir, "none_visible.png")
 
-        # Check if screenshots already exist
-        if not os.path.exists(both_visible_image_path):
+        # Take screenshots if needed
+        if need_new_screenshots or not os.path.exists(both_visible_image_path):
             self.prompt_user_for_screenshot("Please ensure both the loot chest and boss is visible, then press OK.")
-            self.take_screenshot("both_visible.png")  # Take screenshot for both visible
+            self.take_screenshot("both_visible.png")
         else:
             logging.info("Using existing screenshot for both visible.")
 
-        if not os.path.exists(none_visible_image_path):
+        if need_new_screenshots or not os.path.exists(none_visible_image_path):
             self.prompt_user_for_screenshot("Please ensure neither the loot chest nor the boss is visible, then press OK.")
-            self.take_screenshot("none_visible.png")  # Take screenshot for neither visible
+            self.take_screenshot("none_visible.png")
         else:
             logging.info("Using existing screenshot for none visible.")
 
