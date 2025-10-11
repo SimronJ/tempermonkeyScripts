@@ -1,3 +1,0 @@
-keyboard==0.13.5
-psutil==5.9.8
-
