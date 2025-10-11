@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 import win32gui
 import win32process
 import win32con
+import win32api  # NEW
 
 # -------------------- Config --------------------
 load_dotenv()
@@ -38,6 +39,13 @@ CTRL_PRESS_INTERVAL = 1.0       # seconds between ctrl presses while enemy prese
 LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check  # (kept but no longer used)
 MAINT_INTERVAL = 120.0          # periodic Esc+Ctrl (every 2 minutes)
 LOOT_KEEP_OPEN = 2.0            # keep chest open for 2s
+
+# Mouse behavior (NEW)
+USE_REAL_MOUSE_CLICKS = True
+MOUSE_MOVE_DURATION = 0.05       # fast move to target
+MOUSE_RETURN_DURATION = 0.05     # fast return to original position
+MOUSE_BETWEEN_ACTIONS = 0.05     # small gap between sequential clicks
+RESTORE_PRE_FOCUS = True         # try to restore previous foreground window
 
 # No-enemy fallback
 ENEMY_ABSENCE_CTRL_THRESHOLD = 5  # press Ctrl if no enemy for N polls
@@ -68,13 +76,18 @@ if not API_URL:
     logger.error("API_URL not found in .env")
     raise SystemExit(1)
 
-# -------------------- Window focus helpers --------------------
-def _enum_windows_for_pid(pid):
+# -------------------- Window helpers --------------------
+def get_pid_from_hwnd(hwnd):  # NEW
+    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    return pid
+
+def _enum_windows_for_pid(pid):  # NEW: enumerate top-level visible windows for PID
     result = []
     def callback(hwnd, _):
         if win32gui.IsWindowVisible(hwnd):
             _, w_pid = win32process.GetWindowThreadProcessId(hwnd)
-            if w_pid == pid:
+            # Ensure top-level (no parent) window
+            if w_pid == pid and win32gui.GetParent(hwnd) == 0:
                 result.append(hwnd)
     win32gui.EnumWindows(callback, None)
     return result
@@ -92,34 +105,56 @@ def find_tlopo_hwnd():
     logger.warning("tlopo.exe window not found")
     return None
 
-def focus_hwnd(hwnd):
+# Background (no-focus) input helpers
+def _make_lparam_xy(x, y):
+    return (int(y) << 16) | (int(x) & 0xFFFF)
+
+def post_key(hwnd, vk):
+    # Build keyboard messages for background window
+    sc = win32api.MapVirtualKey(vk, 0)
+    lparam_down = 1 | (sc << 16)
+    lparam_up = lparam_down | (1 << 30) | (1 << 31)
+    win32gui.PostMessage(hwnd, win32con.WM_KEYDOWN, vk, lparam_down)
+    win32gui.PostMessage(hwnd, win32con.WM_KEYUP,   vk, lparam_up)
+
+def post_left_click(hwnd, screen_x, screen_y):
+    # Convert screen -> client coords for the target window
     try:
-        # Only restore if minimized to avoid window size changes
-        if win32gui.IsIconic(hwnd):
-            logger.info("Window is minimized; restoring")
-            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        # Do not force ShowWindow for normal/maximized windows to prevent resize
-        win32gui.SetForegroundWindow(hwnd)
-        logger.info("Focused tlopo.exe window")
-        return True
+        cx, cy = win32gui.ScreenToClient(hwnd, (int(screen_x), int(screen_y)))
     except Exception as e:
-        logger.debug(f"Focus failed: {e}")
+        logger.error(f"ScreenToClient failed: {e}")
         return False
+    lp = _make_lparam_xy(cx, cy)
+    # Move (optional), then down/up
+    win32gui.PostMessage(hwnd, win32con.WM_MOUSEMOVE, 0, lp)
+    win32gui.PostMessage(hwnd, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lp)
+    win32gui.PostMessage(hwnd, win32con.WM_LBUTTONUP, 0, lp)
+    return True
+
+# Map friendly names to VK codes
+KEY_TO_VK = {
+    'ctrl':  win32con.VK_CONTROL,
+    'shift': win32con.VK_SHIFT,
+    'esc':   win32con.VK_ESCAPE,
+}
 
 # -------------------- Bot --------------------
 class GameBot:
     def __init__(self):
         self.last_api_time = 0.0
         self.last_ctrl_time = 0.0
-        self.last_maint_time = 0.0
+        self.last_maint_time = time.time()
         self.enemy_active = False
         self.hwnd = None
+        self.tlopo_pid = None            # NEW
         self.state = self.load_state()
-        # Ensure state file exists immediately
         self.save_state()
         logger.info(f"State loaded: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
-
-        self.no_enemy_count = 0   # NEW: consecutive no-enemy polls counter
+        self.no_enemy_count = 0
+        try:
+            pyautogui.PAUSE = 0  # speed up pyautogui actions
+        except Exception:
+            pass
 
     # ---------- State ----------
     def load_state(self):
@@ -147,40 +182,92 @@ class GameBot:
             logger.error(f"Failed to write {STATE_FILE}: {e}")
 
     # ---------- Focused inputs ----------
-    def ensure_focus(self):
+    def ensure_hwnd(self):
         if not self.hwnd or not win32gui.IsWindow(self.hwnd):
             self.hwnd = find_tlopo_hwnd()
-        if self.hwnd:
-            return focus_hwnd(self.hwnd)
-        return False
+            if self.hwnd:
+                self.tlopo_pid = get_pid_from_hwnd(self.hwnd)  # NEW
+                logger.info(f"tlopo hwnd={self.hwnd}, pid={self.tlopo_pid}")
+        return self.hwnd
 
+    # ---------- Background inputs (no focus) ----------
     def press_key(self, key, reason=None):
-        if self.ensure_focus():
-            try:
-                pyautogui.press(key)
-                if reason:
-                    logger.info(f"Pressed key '{key}' - reason: {reason}")
-                else:
-                    logger.info(f"Pressed key '{key}'")
-                return True
-            except Exception as e:
-                logger.error(f"Key press failed ({key}): {e}")
-        else:
-            logger.warning(f"Skipped key '{key}' - tlopo window not focused/found")
-        return False
+        hwnd = self.ensure_hwnd()
+        if not hwnd:
+            logger.warning(f"Skipped key '{key}' - tlopo window not found")
+            return False
+        vk = KEY_TO_VK.get(key.lower())
+        if not vk:
+            logger.error(f"Unknown key '{key}' for VK mapping")
+            return False
+        try:
+            post_key(hwnd, vk)
+            if reason:
+                logger.info(f"Posted key '{key}' (background) - reason: {reason}")
+            else:
+                logger.info(f"Posted key '{key}' (background)")
+            return True
+        except Exception as e:
+            logger.error(f"Post key failed ({key}): {e}")
+            return False
+
+    def _belongs_to_tlopo(self, hwnd):  # NEW
+        if not hwnd or not win32gui.IsWindow(hwnd) or not self.tlopo_pid:
+            return False
+        try:
+            return get_pid_from_hwnd(hwnd) == self.tlopo_pid
+        except Exception:
+            return False
 
     def click_center(self, cx, cy, label="click"):
-        if self.ensure_focus():
+        # If using real mouse, move-click-return fast; else post background Windows messages
+        if USE_REAL_MOUSE_CLICKS:
             try:
-                x, y = int(cx), int(cy)
-                pyautogui.click(x, y)
-                logger.info(f"Click '{label}' at ({x}, {y})")
+                sx, sy = int(cx), int(cy)
+                # Save current mouse position and foreground window
+                prev_x, prev_y = pyautogui.position()
+                prev_hwnd = None
+                if RESTORE_PRE_FOCUS:
+                    try:
+                        prev_hwnd = win32gui.GetForegroundWindow()
+                    except Exception:
+                        prev_hwnd = None
+
+                # Move -> click -> small gap -> return -> restore focus
+                pyautogui.moveTo(sx, sy, duration=MOUSE_MOVE_DURATION)
+                pyautogui.click(sx, sy)
+                time.sleep(MOUSE_BETWEEN_ACTIONS)
+                pyautogui.moveTo(prev_x, prev_y, duration=MOUSE_RETURN_DURATION)
+
+                # Best-effort restore previous foreground window
+                if RESTORE_PRE_FOCUS and prev_hwnd and win32gui.IsWindow(prev_hwnd):
+                    try:
+                        win32gui.SetForegroundWindow(prev_hwnd)
+                    except Exception:
+                        pass
+
+                logger.info(f"Real-mouse click '{label}' at ({sx}, {sy}), returned to ({prev_x}, {prev_y})")
                 return True
             except Exception as e:
-                logger.error(f"Click failed at ({cx},{cy}): {e}")
+                logger.error(f"Real-mouse click failed for '{label}': {e}")
+                return False
         else:
-            logger.warning(f"Skipped click '{label}' - tlopo window not focused/found")
-        return False
+            # Background click (may be ignored by game)
+            hwnd_main = self.ensure_hwnd()
+            if not hwnd_main:
+                logger.warning(f"Skipped click '{label}' - tlopo window not found")
+                return False
+            try:
+                cx_client, cy_client = win32gui.ScreenToClient(hwnd_main, (int(cx), int(cy)))
+                lp = _make_lparam_xy(cx_client, cy_client)
+                win32gui.PostMessage(hwnd_main, win32con.WM_MOUSEMOVE, 0, lp)
+                win32gui.PostMessage(hwnd_main, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lp)
+                win32gui.PostMessage(hwnd_main, win32con.WM_LBUTTONUP, 0, lp)
+                logger.info(f"Posted background click '{label}' at screen ({int(cx)},{int(cy)})")
+                return True
+            except Exception as e:
+                logger.error(f"Post click exception for '{label}': {e}")
+                return False
 
     # ---------- Vision ----------
     def take_screenshot(self):
@@ -278,6 +365,8 @@ class GameBot:
         preds = self.analyze()
         self.last_api_time = time.time()
         self.enemy_active = self.have_enemy(preds)
+        # Ensure maintenance waits full interval after start
+        self.last_maint_time = time.time()  # NEW
 
         last_loot_btn_center = None
         last_loot_btn_conf = None
@@ -359,27 +448,29 @@ class GameBot:
                         except Exception as e:
                             logger.warning(f"Failed to archive chest screenshot: {e}")
 
-                        # Click LootTakeButton once
+                        # Click LootTakeButton once (fast real-mouse)
                         lx, ly = int(loot_btn['x']), int(loot_btn['y'])
                         last_loot_btn_center = (lx, ly)
                         logger.info(f"Clicking LootTakeButton (conf={last_loot_btn_conf:.1f}%)")
                         self.click_center(lx, ly, label="LootTakeButton")
 
-                        # If ss detected, click its center once
+                        # If ss detected, click its center once (fast)
                         if ss_obj:
                             logger.info(f"SS detected (conf={ss_obj.get('confidence',0.0)*100:.1f}%) - clicking SS")
                             self.click_center(ss_obj['x'], ss_obj['y'], label="Select SS")
 
-                        # Keep chest open for 2 seconds
-                        logger.info(f"Holding chest open for {LOOT_KEEP_OPEN:.1f}s")
-                        time.sleep(LOOT_KEEP_OPEN)
-
-                        # If no special items, click TrashIcon
-                        if not is_special:
+                        if is_special:
+                            # Keep chest open for viewing/confirmation, then click LootTakeButton again
+                            logger.info(f"Holding chest open for {LOOT_KEEP_OPEN:.1f}s (special item)")
+                            time.sleep(LOOT_KEEP_OPEN)
+                            if last_loot_btn_center:
+                                logger.info("Clicking LootTakeButton again (special)")
+                                self.click_center(last_loot_btn_center[0], last_loot_btn_center[1], label="LootTakeButton (2nd)")
+                        else:
+                            # No special: click TrashIcon immediately (fast chain)
+                            time.sleep(MOUSE_BETWEEN_ACTIONS)
                             logger.info(f"No special items; clicking TrashIcon (conf={last_trash_conf:.1f}%)")
                             self.click_center(trash_icon['x'], trash_icon['y'], label="TrashIcon")
-                        else:
-                            logger.info("Special item detected (fame/legendary); skipping TrashIcon")
 
                         # Update state
                         self.state["chests_opened"] += 1
