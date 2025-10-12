@@ -17,6 +17,9 @@ import win32gui
 import win32process
 import win32con
 import win32api
+from io import BytesIO
+from PIL import Image
+import requests
 
 # -------------------- Config --------------------
 load_dotenv()
@@ -43,14 +46,10 @@ SS_MIN_CONF = 0.2
 # Timings
 API_POLL_INTERVAL = 5.0         # seconds between main polls
 CTRL_PRESS_INTERVAL = 1.0       # seconds between ctrl presses while enemy present
-LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check  # (kept but no longer used)
-MAINT_INTERVAL = 120.0          # periodic Esc+Ctrl (every 2 minutes)
 LOOT_KEEP_OPEN = 2.0            # keep chest open for 2s
 NO_CHEST_WAIT = 3.0             # wait N seconds for chest to appear after enemy defeat
-BUTTON_PRESS_DELAY = 0.5        # NEW: delay after each button press
-
-# No-enemy fallback
-ENEMY_ABSENCE_CTRL_THRESHOLD = 5  # press Ctrl if no enemy for N polls
+BUTTON_PRESS_DELAY = 0.5        # delay after each button press
+RECOVERY_WAIT = 10.0            # wait 10 seconds after recovery ctrl press
 
 # Mouse behavior
 USE_REAL_MOUSE_CLICKS = True
@@ -110,6 +109,32 @@ def canonical_class(name: str) -> str:  # NEW
         return ""
     key = name.strip().lower().replace("-", "_").replace(" ", "")
     return CLASS_ALIASES.get(key, name)
+
+# ---------- API upload limits ----------
+API_UPLOAD_MAX_SIDE = 1280          # longest side for first attempt
+API_UPLOAD_JPEG_QUALITY = 70        # first attempt JPEG quality
+API_RETRY_MAX_SIDE = 960            # retry longest side on 413
+API_RETRY_JPEG_QUALITY = 60         # retry JPEG quality on 413
+
+def _downscale_long_side(img: Image.Image, max_side: int) -> Image.Image:
+    w, h = img.size
+    long_side = max(w, h)
+    if long_side <= max_side:
+        return img
+    scale = max_side / float(long_side)
+    new_w, new_h = int(w * scale), int(h * scale)
+    return img.resize((new_w, new_h), Image.LANCZOS)
+
+def _encode_jpeg(img: Image.Image, quality: int) -> bytes:
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=quality, optimize=True)
+    return buf.getvalue()
+
+def _prepare_api_bytes(pil_img: Image.Image, max_side: int, quality: int):
+    """Return (jpeg_bytes, work_image) after downscale+JPEG."""
+    work = pil_img.convert("RGB")
+    work = _downscale_long_side(work, max_side)
+    return _encode_jpeg(work, quality), work
 
 # -------------------- Window helpers --------------------
 def get_pid_from_hwnd(hwnd):  # NEW
@@ -224,14 +249,14 @@ class GameBot:
     def __init__(self):
         self.last_api_time = 0.0
         self.last_ctrl_time = 0.0
-        self.last_maint_time = time.time()
+        self.last_activity_time = time.time()  # Initialize last_activity_time
+        self.recovery_ctrl_time = 0.0  # NEW: track when we last pressed recovery ctrl
         self.enemy_active = False
         self.hwnd = None
         self.tlopo_pid = None            # NEW
         self.state = self.load_state()
         self.save_state()
         logger.info(f"State loaded: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
-        self.no_enemy_count = 0
         self.waiting_for_chest = False   # NEW - track if we just defeated an enemy
         self.chest_wait_start = 0.0      # NEW - when we started waiting for chest
         try:
@@ -265,6 +290,11 @@ class GameBot:
                 logger.error("API_URL not found in .env but API mode requested")
                 raise SystemExit(1)
             logger.info("Using Roboflow API for inference.")
+
+        # NEW: Initialize click mapping variables
+        self.capture_rect = (0, 0, 0, 0)   # NEW: (left, top, width, height)
+        self._click_origin = (0, 0)        # NEW: screen origin of capture
+        self._click_scale = (1.0, 1.0)     # NEW: scale from API image -> capture
 
     # ---------- State ----------
     def load_state(self):
@@ -388,62 +418,156 @@ class GameBot:
                 logger.error(f"Post click exception for '{label}': {e}")
                 return False
 
-    # ---------- Vision ----------
+    # ---------- Capture TLOPO window ----------
+    def capture_tlopo_screenshot(self):
+        """
+        Capture tlopo.exe window if found; otherwise full screen.
+        Returns a PIL.Image and also saves SCREENSHOT_FILENAME.
+        """
+        try:
+            hwnd = self.ensure_hwnd()
+            if hwnd and win32gui.IsWindow(hwnd):
+                left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+                width, height = max(1, right - left), max(1, bottom - top)
+                # Save capture rect for click mapping
+                self.capture_rect = (left, top, width, height)  # NEW
+                img = pyautogui.screenshot(region=(left, top, width, height))
+            else:
+                # Fullscreen fallback
+                img = pyautogui.screenshot()
+                self.capture_rect = (0, 0, img.width, img.height)  # NEW
+            try:
+                img.save(SCREENSHOT_FILENAME)
+            except Exception:
+                pass
+            return img
+        except Exception as e:
+            logger.error(f"capture_tlopo_screenshot failed: {e}")
+            img = pyautogui.screenshot()
+            self.capture_rect = (0, 0, img.width, img.height)  # NEW
+            try:
+                img.save(SCREENSHOT_FILENAME)
+            except Exception:
+                pass
+            return img
+
     def take_screenshot(self):
         logger.info("Capturing screenshot")
-        shot = pyautogui.screenshot()
-        shot.save(SCREENSHOT_FILENAME)
-        return shot
+        img = self.capture_tlopo_screenshot()
+        self.latest_image = img
+        return img
 
-    def analyze_via_api(self):
+    # ---------- Mapping from API image coords -> screen coords (NEW) ----------
+    def _update_click_mapping(self, work_img):
+        """Call this after preparing the downscaled image sent to the API."""
+        cap_w, cap_h = self.latest_image.size
+        work_w, work_h = work_img.size
+        left, top, _, _ = self.capture_rect
+        # origin is where the capture starts on the screen
+        self._click_origin = (left, top)
+        # scale converts API-image pixels to capture pixels
+        sx = cap_w / float(work_w) if work_w else 1.0
+        sy = cap_h / float(work_h) if work_h else 1.0
+        self._click_scale = (sx, sy)
+        logger.debug(f"Click map: origin={self._click_origin} scale=({sx:.3f},{sy:.3f}) work={work_w}x{work_h} cap={cap_w}x{cap_h}")
+
+    def map_point_to_screen(self, x, y):
+        """Convert prediction center (x,y) in API image space to absolute screen coords."""
         try:
-            img = Image.open(SCREENSHOT_FILENAME)
-            width, height = img.size
-            logger.info(f"Sending screenshot to API (size={width}x{height})")
-            t0 = time.perf_counter()
-            with open(SCREENSHOT_FILENAME, "rb") as f:
-                resp = requests.post(API_URL, files={"file": f}, timeout=10)
-            elapsed = (time.perf_counter() - t0) * 1000.0
-            if resp.status_code != 200:
-                logger.warning(f"API {resp.status_code} in {elapsed:.1f} ms: {resp.text[:200]}")
-                img.close()
-                return []
-            data = resp.json()
-            preds = data.get("predictions", [])
-            # Normalize class names if needed
-            for p in preds:
-                p["class"] = canonical_class(p.get("class", ""))
-            labeled = self.draw_detections(img.copy(), preds)
-            labeled.save(LABELED_FILENAME)
-            img.close()
-            logger.info("Updated labeled_screenshot.png")
-            return preds
+            ox, oy = self._click_origin
+            sx, sy = self._click_scale
+            return int(round(ox + x * sx)), int(round(oy + y * sy))
+        except Exception:
+            # Fallback: best-effort
+            return int(x), int(y)
+
+    # ---------- API path ----------
+    def analyze_api(self, pil_img: Image.Image):
+        """
+        Send preprocessed image to API. Use JPEG + downscale and retry smaller on 413.
+        Also renders labeled_screenshot.png on the same downscaled image used for inference.
+        """
+        api_url = API_URL
+        if api_url and "format=" not in api_url:
+            api_url += ("&" if "?" in api_url else "?") + "format=json"
+
+        # First attempt (compressed)
+        body, work_img = _prepare_api_bytes(pil_img, API_UPLOAD_MAX_SIDE, API_UPLOAD_JPEG_QUALITY)
+        # IMPORTANT: update mapping using the work image we will send
+        self._update_click_mapping(work_img)  # NEW
+        try:
+            r = requests.post(api_url, files={"file": ("image.jpg", body, "image/jpeg")}, timeout=30)
         except Exception as e:
-            logger.error(f"Analyze(API) error: {e}")
+            logger.warning(f"API request failed: {e}")
             return []
+
+        # Retry smaller on 413
+        if r.status_code == 413:
+            logger.warning(f"API 413 in {getattr(r.elapsed,'total_seconds',lambda:0)()*1000:.1f} ms: Request too large, retrying smaller")
+            body2, work_img2 = _prepare_api_bytes(pil_img, API_RETRY_MAX_SIDE, API_RETRY_JPEG_QUALITY)
+            self._update_click_mapping(work_img2)  # NEW: update mapping to match retry image
+            try:
+                r = requests.post(api_url, files={"file": ("image.jpg", body2, "image/jpeg")}, timeout=30)
+                work_img = work_img2  # use the retried image for labeling
+            except Exception as e:
+                logger.warning(f"API retry request failed: {e}")
+                return []
+
+        if not r.ok:
+            try:
+                logger.warning(f"API {r.status_code} in {r.elapsed.total_seconds()*1000:.1f} ms: {r.text[:200]}")
+            except Exception:
+                logger.warning(f"API {r.status_code}")
+            return []
+
+        try:
+            data = r.json()
+        except Exception:
+            logger.warning("API returned non-JSON response")
+            return []
+
+        preds = self.parse_api_predictions(data)
+
+        # Render labeled_screenshot.png on the same-size image used for inference
+        try:
+            labeled = self.draw_detections(work_img.copy(), preds)
+            labeled.save(LABELED_FILENAME)
+            logger.info("Updated labeled_screenshot.png")
+        except Exception as e:
+            logger.warning(f"Failed to write labeled_screenshot.png: {e}")
+
+        return preds
+
+    def parse_api_predictions(self, data):
+        """
+        Convert API JSON to internal preds list: [{x,y,width,height,confidence,class}]
+        """
+        preds = []
+        try:
+            items = data.get("predictions", []) if isinstance(data, dict) else []
+            for p in items:
+                try:
+                    cls = canonical_class(p.get("class", ""))
+                    preds.append({
+                        "x": float(p.get("x", 0)),
+                        "y": float(p.get("y", 0)),
+                        "width": float(p.get("width", 0)),
+                        "height": float(p.get("height", 0)),
+                        "confidence": float(p.get("confidence", 0.0)),
+                        "class": cls,
+                    })
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.warning(f"Failed to parse API predictions: {e}")
+        return preds
 
     def analyze(self):
-        try:
-            img = Image.open(SCREENSHOT_FILENAME)
-            width, height = img.size
-            # NEW: choose by resolved_mode
-            if self.resolved_mode == "local" and self.detector:
-                logger.info(f"Local inference on screenshot (size={width}x{height})")
-                t0 = time.perf_counter()
-                preds = self.detector.predict(SCREENSHOT_FILENAME)
-                elapsed = (time.perf_counter() - t0) * 1000.0
-                logger.info(f"Local inference ok in {elapsed:.1f} ms - detections={len(preds)}")
-                labeled = self.draw_detections(img.copy(), preds)
-                labeled.save(LABELED_FILENAME)
-                img.close()
-                logger.info("Updated labeled_screenshot.png")
-                return preds
-            else:
-                img.close()
-                return self.analyze_via_api()
-        except Exception as e:
-            logger.error(f"Analyze error: {e}")
-            return []
+        """Route to local or API inference using the latest screenshot image."""
+        if self.resolved_mode == "local":
+            return self.detector.predict(self.latest_image)  # ...your local path...
+        # API path uses the compressed upload
+        return self.analyze_api(self.latest_image)
 
     def draw_detections(self, image, predictions):
         draw = ImageDraw.Draw(image)
@@ -597,22 +721,12 @@ class GameBot:
         if self.resolved_mode == "local":
             logger.info(f"YOLO device={YOLO_DEVICE}, conf={YOLO_CONF}, imgsz={YOLO_IMGSZ}")  # NEW
         logger.info(f"Enemy confidence threshold: {ENEMY_CONFIDENCE_THRESHOLD*100:.1f}%")
-        if DISCORD_WEBHOOK_URL:
-            logger.info("Discord webhook configured for chest notifications")
-        else:
-            logger.warning("No Discord webhook URL found in .env")
-            
+        
         # Initial poll
         self.take_screenshot()
         preds = self.analyze()
         self.last_api_time = time.time()
         self.enemy_active = self.have_enemy(preds)
-        # Ensure maintenance waits full interval after start
-        self.last_maint_time = time.time()
-
-        last_loot_btn_center = None
-        last_loot_btn_conf = None
-        last_trash_conf = None
 
         while True:
             if keyboard.is_pressed('q'):
@@ -621,27 +735,19 @@ class GameBot:
 
             now = time.time()
 
-            # Press Ctrl every second while enemy is active AND no loot chest is present (based on last poll)
-            loot_btn_present = last_loot_btn_center is not None  # Track if we just processed loot
-            if self.enemy_active and not loot_btn_present and (now - self.last_ctrl_time) >= CTRL_PRESS_INTERVAL:
-                self.press_key('ctrl', reason="enemy active - attack tick")
+            # PHASE 1: CONTINUOUS CTRL PRESSING WHILE ENEMY ACTIVE
+            if self.enemy_active and (now - self.last_ctrl_time) >= CTRL_PRESS_INTERVAL:
+                self.press_key('ctrl', reason="enemy active - attack")
                 self.last_ctrl_time = now
+                self.last_activity_time = now  # Reset activity timer
 
-            # Periodic maintenance keys (Esc then Ctrl)
-            if (now - self.last_maint_time) >= MAINT_INTERVAL:
-                logger.info("Maintenance keys: Esc then Ctrl")
-                self.press_key('esc', reason="maintenance")
-                time.sleep(0.1)
-                self.press_key('ctrl', reason="maintenance")
-                self.last_maint_time = now
-
-            # Check for chest timeout after enemy defeat
+            # PHASE 2: CHECK FOR CHEST TIMEOUT AFTER ENEMY DEFEAT
             if self.waiting_for_chest and (now - self.chest_wait_start) >= NO_CHEST_WAIT:
                 logger.info(f"No chest found after {NO_CHEST_WAIT}s, pressing Shift")
                 self.press_key('shift', reason="no chest found after enemy defeat")
                 self.waiting_for_chest = False
 
-            # Poll API on interval
+            # PHASE 3: MAIN POLLING LOOP
             if (now - self.last_api_time) >= API_POLL_INTERVAL:
                 self.take_screenshot()
                 preds = self.analyze()
@@ -649,15 +755,13 @@ class GameBot:
 
                 enemy_now = self.have_enemy(preds)
                 
-                # Reset loot button tracking for this cycle
-                last_loot_btn_center = None
-
-                # PRIORITY 1: Handle loot first if chest is open (even if enemy is present)
+                # PHASE 4: HANDLE CHEST LOOTING (PRIORITY)
                 loot_btn = self.find_first(preds, 'LootTakeButton')
                 trash_icon = self.find_first(preds, 'TrashIcon')
 
                 if loot_btn and trash_icon:
-                    # Found chest - prioritize loot handling
+                    self.last_activity_time = now  # Reset activity timer for chest
+                    
                     if enemy_now:
                         logger.info("PRIORITY: Chest detected while enemy present - handling loot first")
                     
@@ -666,12 +770,11 @@ class GameBot:
                         self.waiting_for_chest = False
 
                     # Log confidences
-                    last_loot_btn_conf = loot_btn.get('confidence', 0.0) * 100
-                    last_trash_conf = trash_icon.get('confidence', 0.0) * 100
-                    logger.info(f"Chest open detected: LootTakeButton conf={last_loot_btn_conf:.1f}%, "
-                                f"TrashIcon conf={last_trash_conf:.1f}%")
+                    loot_conf = loot_btn.get('confidence', 0.0) * 100
+                    trash_conf = trash_icon.get('confidence', 0.0) * 100
+                    logger.info(f"Chest open detected: LootTakeButton conf={loot_conf:.1f}%, TrashIcon conf={trash_conf:.1f}%")
 
-                    # Determine items (using current preds)
+                    # Determine items
                     has_legendary, has_fame, ss_obj = self.find_items(preds)
                     is_special = has_legendary or has_fame
 
@@ -693,59 +796,71 @@ class GameBot:
                     except Exception as e:
                         logger.warning(f"Failed to archive chest screenshot: {e}")
 
-                    # Click LootTakeButton once (fast real-mouse)
-                    lx, ly = int(loot_btn['x']), int(loot_btn['y'])
-                    last_loot_btn_center = (lx, ly)  # Mark that we're handling loot
-                    logger.info(f"Clicking LootTakeButton (conf={last_loot_btn_conf:.1f}%)")
+                    # Click LootTakeButton
+                    # lx, ly = int(loot_btn['x']), int(loot_btn['y'])   # OLD
+                    lx, ly = self.map_point_to_screen(loot_btn['x'], loot_btn['y'])  # NEW
+                    logger.info(f"Clicking LootTakeButton (conf={loot_conf:.1f}%)")
                     self.click_center(lx, ly, label="LootTakeButton")
 
-                    # If ss detected, click its center once (fast)
+                    # If SS detected, click it
                     if ss_obj:
+                        # sx, sy = int(ss_obj['x']), int(ss_obj['y'])  # OLD
+                        sx, sy = self.map_point_to_screen(ss_obj['x'], ss_obj['y'])  # NEW
                         logger.info(f"SS detected (conf={ss_obj.get('confidence',0.0)*100:.1f}%) - clicking SS")
-                        self.click_center(ss_obj['x'], ss_obj['y'], label="Select SS")
+                        self.click_center(sx, sy, label="Select SS")
 
                     if is_special:
-                        # Keep chest open for viewing/confirmation, then click LootTakeButton again
+                        # Keep chest open for viewing, then click LootTakeButton again
                         logger.info(f"Holding chest open for {LOOT_KEEP_OPEN:.1f}s (special item)")
                         time.sleep(LOOT_KEEP_OPEN)
                         logger.info("Clicking LootTakeButton again (special)")
-                        self.click_center(last_loot_btn_center[0], last_loot_btn_center[1], label="LootTakeButton (2nd)")
+                        self.click_center(lx, ly, label="LootTakeButton (2nd)")
                     else:
-                        # No special: click TrashIcon immediately (fast chain)
+                        # No special: click TrashIcon immediately
                         time.sleep(MOUSE_BETWEEN_ACTIONS)
-                        logger.info(f"No special items; clicking TrashIcon (conf={last_trash_conf:.1f}%)")
-                        self.click_center(trash_icon['x'], trash_icon['y'], label="TrashIcon")
+                        logger.info(f"No special items; clicking TrashIcon (conf={trash_conf:.1f}%)")
+                        tx, ty = self.map_point_to_screen(trash_icon['x'], trash_icon['y'])  # NEW
+                        self.click_center(tx, ty, label="TrashIcon")
 
                     # Update state
                     self.state["chests_opened"] += 1
                     self.save_state()
                     logger.info(f"Chest handled. Total chests_opened={self.state['chests_opened']}")
 
-                # PRIORITY 2: Handle enemy transitions (only after loot is processed)
-                # Transition: enemy defeated
+                # PHASE 5: HANDLE ENEMY STATE TRANSITIONS
+                # Enemy defeated (was active, now not active)
                 if self.enemy_active and not enemy_now:
                     self.state["bosses_defeated"] += 1
                     self.save_state()
                     logger.info(f"Enemy defeated. Total bosses_defeated={self.state['bosses_defeated']}")
-                    self.press_key('shift', reason="post-fight")
+                    self.press_key('shift', reason="post-fight cleanup")
+                    
                     # Start waiting for chest (only if we didn't just process one)
                     if not (loot_btn and trash_icon):
                         self.waiting_for_chest = True
                         self.chest_wait_start = now
+                        logger.info("Waiting for chest to appear...")
+
+                # Update enemy state
+                if enemy_now:
+                    self.last_activity_time = now  # Reset activity timer for enemy
 
                 self.enemy_active = enemy_now
 
-                # Track no-enemy streak and press Ctrl if threshold reached (only if no loot present)
-                if not self.enemy_active and not (loot_btn and trash_icon):
-                    self.no_enemy_count += 1
-                    logger.info(f"No-enemy streak: {self.no_enemy_count}/{ENEMY_ABSENCE_CTRL_THRESHOLD}")
-                    if self.no_enemy_count >= ENEMY_ABSENCE_CTRL_THRESHOLD:
-                        self.press_key('ctrl', reason=f"no enemy for {self.no_enemy_count} polls")
-                        self.no_enemy_count = 0
-                else:
-                    if self.no_enemy_count:
-                        logger.info("Enemy detected again (or loot present), resetting no-enemy streak")
-                    self.no_enemy_count = 0
+                # PHASE 6: RECOVERY LOGIC (NO ENEMY FOR EXTENDED PERIOD)
+                time_since_activity = now - self.last_activity_time
+                time_since_recovery = now - self.recovery_ctrl_time
+                
+                # If no activity for 30+ seconds and haven't done recovery in last 10 seconds
+                if (not self.enemy_active and 
+                    not (loot_btn and trash_icon) and 
+                    time_since_activity >= 30.0 and 
+                    time_since_recovery >= RECOVERY_WAIT):
+                        
+                    logger.warning(f"No activity for {time_since_activity:.1f}s - attempting recovery")
+                    self.press_key('ctrl', reason="recovery - no activity detected")
+                    self.recovery_ctrl_time = now
+                    logger.info(f"Recovery ctrl sent, waiting {RECOVERY_WAIT}s before next attempt")
 
             time.sleep(0.05)  # prevent busy-wait
 
