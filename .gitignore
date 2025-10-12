@@ -70,6 +70,10 @@ env/
 .DS_Store
 Thumbs.db
 
+# tempfile frames for video overlay
+tmp_video_frames/
+chest_openings.mp4
+
 # Ultralytics/YOLO outputs
 runs/
 
