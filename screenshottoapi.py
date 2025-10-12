@@ -9,24 +9,30 @@ import keyboard
 import psutil
 import shutil  # NEW
 import plyer  # NEW - for desktop notifications
+import requests
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
-
-# Win32 focus helpers
+from ultralytics import YOLO
 import win32gui
 import win32process
 import win32con
-import win32api  # NEW
+import win32api
 
 # -------------------- Config --------------------
 load_dotenv()
 API_URL = os.getenv("API_URL")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH")
+YOLO_DEVICE = os.getenv("YOLO_DEVICE", "cpu")
+YOLO_CONF = float(os.getenv("YOLO_CONF", "0.15"))
+YOLO_IMGSZ = int(os.getenv("YOLO_IMGSZ", "1280"))
+INFERENCE_MODE = os.getenv("INFERENCE_MODE", "auto").lower()  # NEW: local | api | auto
 
 PROCESS_NAME = "tlopo.exe"
 
 # Detection thresholds
 ENEMY_CLASS = "enemy"
-ENEMY_CONFIDENCE_THRESHOLD = 0.8
+ENEMY_CONFIDENCE_THRESHOLD = 0.7  # CHANGED from 0.8 to 0.7
 LEGENDARY_CLASS = "legendary"
 LEGENDARY_MIN_CONF = 0.1
 FAME_CLASS = "fame"
@@ -41,11 +47,12 @@ LOOT_RECHECK_DELAY = 3.0        # wait after first loot click before re-check  #
 MAINT_INTERVAL = 120.0          # periodic Esc+Ctrl (every 2 minutes)
 LOOT_KEEP_OPEN = 2.0            # keep chest open for 2s
 NO_CHEST_WAIT = 3.0             # wait N seconds for chest to appear after enemy defeat
+BUTTON_PRESS_DELAY = 0.5        # NEW: delay after each button press
 
 # No-enemy fallback
 ENEMY_ABSENCE_CTRL_THRESHOLD = 5  # press Ctrl if no enemy for N polls
 
-# Mouse behavior (NEW)
+# Mouse behavior
 USE_REAL_MOUSE_CLICKS = True
 MOUSE_MOVE_DURATION = 0.05       # fast move to target
 MOUSE_RETURN_DURATION = 0.05     # fast return to original position
@@ -53,10 +60,11 @@ MOUSE_BETWEEN_ACTIONS = 0.05     # small gap between sequential clicks
 RESTORE_PRE_FOCUS = True         # try to restore previous foreground window
 
 # Notifications
-SPECIAL_NOTIFICATION_DIR = "specialNotifications"  # NEW
+SPECIAL_NOTIFICATION_DIR = "specialNotifications"
+CHEST_SHOT_DIR = "chestScreenShot"
 
 # Files
-SCREENSHOT_FILENAME = "screenshot.png"
+SCREENSHOT_FILENAME = "screenshot.png"  # ensure PNG for local inference
 LABELED_FILENAME = "labeled_screenshot.png"
 STATE_FILE = "state.json"
 CHEST_SHOT_DIR = "chestScreenShot"  # NEW
@@ -77,9 +85,31 @@ CLASS_COLORS = {
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("tlopo-bot")
 
-if not API_URL:
-    logger.error("API_URL not found in .env")
-    raise SystemExit(1)
+# NOTE: removed unconditional API_URL exit so local mode can run without API
+
+# Optional: class aliases to normalize names  # NEW
+CLASS_ALIASES = {
+    "loot": "Loot",  # keep if you use it for context
+    "lootbutton": "LootTakeButton",
+    "loot_take_button": "LootTakeButton",
+    "loot take button": "LootTakeButton",
+    "take": "LootTakeButton",
+    "trash": "TrashIcon",
+    "trash_icon": "TrashIcon",
+    "bin": "TrashIcon",
+    "enemy": "enemy",
+    "legendary": "legendary",
+    "fame": "fame",
+    "ss": "ss",
+    "lootexiticon": "LootExitIcon",
+    "loot_exit_icon": "LootExitIcon",
+}
+
+def canonical_class(name: str) -> str:  # NEW
+    if not name:
+        return ""
+    key = name.strip().lower().replace("-", "_").replace(" ", "")
+    return CLASS_ALIASES.get(key, name)
 
 # -------------------- Window helpers --------------------
 def get_pid_from_hwnd(hwnd):  # NEW
@@ -143,6 +173,52 @@ KEY_TO_VK = {
     'esc':   win32con.VK_ESCAPE,
 }
 
+# -------------------- Local YOLO detector --------------------
+class LocalYOLODetector:
+    def __init__(self, model_path: str, device: str = "cpu", conf: float = 0.25, imgsz: int = 640):
+        self.model = YOLO(model_path)
+        try:
+            self.model.to(device)
+        except Exception:
+            pass
+        self.device = device
+        self.conf = conf
+        self.imgsz = imgsz
+        logger.info(f"Loaded YOLOv8 model: {model_path} on device={device}")
+        if hasattr(self.model, "names"):
+            logger.info(f"Model classes: {self.model.names}")
+
+    def predict(self, image_path: str):
+        results = self.model.predict(
+            source=image_path,
+            device=self.device,
+            conf=self.conf,
+            imgsz=self.imgsz,
+            iou=0.5,
+            verbose=False
+        )
+        preds = []
+        for r in results:
+            boxes = getattr(r, "boxes", None)
+            if boxes is None:
+                continue
+            for box in boxes:
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                w, h = (x2 - x1), (y2 - y1)
+                cls_id = int(box.cls[0].item())
+                conf = float(box.conf[0].item())
+                raw_name = self.model.names[cls_id] if hasattr(self.model, "names") else str(cls_id)
+                cls_name = canonical_class(raw_name)
+                preds.append({
+                    "x": cx, "y": cy, "width": w, "height": h,
+                    "confidence": conf, "class": cls_name
+                })
+        if preds:
+            top = sorted(preds, key=lambda p: p["confidence"], reverse=True)[:5]
+            logger.info("Top detections: " + ", ".join(f"{p['class']} {p['confidence']:.2f}" for p in top))
+        return preds
+
 # -------------------- Bot --------------------
 class GameBot:
     def __init__(self):
@@ -159,9 +235,36 @@ class GameBot:
         self.waiting_for_chest = False   # NEW - track if we just defeated an enemy
         self.chest_wait_start = 0.0      # NEW - when we started waiting for chest
         try:
-            pyautogui.PAUSE = 0  # speed up pyautogui actions
+            pyautogui.PAUSE = 0
         except Exception:
             pass
+
+        # Decide inference mode (NEW)
+        self.inference_mode = INFERENCE_MODE
+        resolved = self.inference_mode
+        if resolved == "auto":
+            resolved = "local" if (YOLO_MODEL_PATH and os.path.exists(YOLO_MODEL_PATH)) else "api"
+        self.resolved_mode = resolved
+
+        # Initialize according to resolved mode (NEW)
+        self.detector = None
+        if self.resolved_mode == "local":
+            if YOLO_MODEL_PATH and os.path.exists(YOLO_MODEL_PATH):
+                try:
+                    self.detector = LocalYOLODetector(YOLO_MODEL_PATH, YOLO_DEVICE, conf=YOLO_CONF, imgsz=YOLO_IMGSZ)
+                    logger.info("Using LOCAL YOLOv8 for inference.")
+                except Exception as e:
+                    logger.warning(f"Local YOLO init failed, falling back to API: {e}")
+                    self.resolved_mode = "api"
+            else:
+                logger.warning("YOLO_MODEL_PATH not set or invalid; using API mode")
+                self.resolved_mode = "api"
+
+        if self.resolved_mode == "api":
+            if not API_URL:
+                logger.error("API_URL not found in .env but API mode requested")
+                raise SystemExit(1)
+            logger.info("Using Roboflow API for inference.")
 
     # ---------- State ----------
     def load_state(self):
@@ -213,6 +316,9 @@ class GameBot:
                 logger.info(f"Posted key '{key}' (background) - reason: {reason}")
             else:
                 logger.info(f"Posted key '{key}' (background)")
+            
+            # Add delay after key press
+            time.sleep(BUTTON_PRESS_DELAY)
             return True
         except Exception as e:
             logger.error(f"Post key failed ({key}): {e}")
@@ -254,6 +360,9 @@ class GameBot:
                         pass
 
                 logger.info(f"Real-mouse click '{label}' at ({sx}, {sy}), returned to ({prev_x}, {prev_y})")
+                
+                # Add delay after click
+                time.sleep(BUTTON_PRESS_DELAY)
                 return True
             except Exception as e:
                 logger.error(f"Real-mouse click failed for '{label}': {e}")
@@ -271,6 +380,9 @@ class GameBot:
                 win32gui.PostMessage(hwnd_main, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lp)
                 win32gui.PostMessage(hwnd_main, win32con.WM_LBUTTONUP, 0, lp)
                 logger.info(f"Posted background click '{label}' at screen ({int(cx)},{int(cy)})")
+                
+                # Add delay after click
+                time.sleep(BUTTON_PRESS_DELAY)
                 return True
             except Exception as e:
                 logger.error(f"Post click exception for '{label}': {e}")
@@ -283,7 +395,7 @@ class GameBot:
         shot.save(SCREENSHOT_FILENAME)
         return shot
 
-    def analyze(self):
+    def analyze_via_api(self):
         try:
             img = Image.open(SCREENSHOT_FILENAME)
             width, height = img.size
@@ -298,13 +410,37 @@ class GameBot:
                 return []
             data = resp.json()
             preds = data.get("predictions", [])
-            logger.info(f"API ok in {elapsed:.1f} ms - detections={len(preds)}")
-            # labeled image
+            # Normalize class names if needed
+            for p in preds:
+                p["class"] = canonical_class(p.get("class", ""))
             labeled = self.draw_detections(img.copy(), preds)
             labeled.save(LABELED_FILENAME)
             img.close()
             logger.info("Updated labeled_screenshot.png")
             return preds
+        except Exception as e:
+            logger.error(f"Analyze(API) error: {e}")
+            return []
+
+    def analyze(self):
+        try:
+            img = Image.open(SCREENSHOT_FILENAME)
+            width, height = img.size
+            # NEW: choose by resolved_mode
+            if self.resolved_mode == "local" and self.detector:
+                logger.info(f"Local inference on screenshot (size={width}x{height})")
+                t0 = time.perf_counter()
+                preds = self.detector.predict(SCREENSHOT_FILENAME)
+                elapsed = (time.perf_counter() - t0) * 1000.0
+                logger.info(f"Local inference ok in {elapsed:.1f} ms - detections={len(preds)}")
+                labeled = self.draw_detections(img.copy(), preds)
+                labeled.save(LABELED_FILENAME)
+                img.close()
+                logger.info("Updated labeled_screenshot.png")
+                return preds
+            else:
+                img.close()
+                return self.analyze_via_api()
         except Exception as e:
             logger.error(f"Analyze error: {e}")
             return []
@@ -342,9 +478,9 @@ class GameBot:
         enemies = [p for p in preds if p.get('class') == ENEMY_CLASS and p.get('confidence', 0.0) >= ENEMY_CONFIDENCE_THRESHOLD]
         if enemies:
             top_conf = max(p['confidence'] for p in enemies) * 100
-            logger.info(f"Enemy present - count={len(enemies)} top_conf={top_conf:.1f}%")
+            logger.info(f"Enemy present - count={len(enemies)} top_conf={top_conf:.1f}% (threshold: {ENEMY_CONFIDENCE_THRESHOLD*100:.1f}%)")
         else:
-            logger.info("No enemy present")
+            logger.info(f"No enemy present (threshold: {ENEMY_CONFIDENCE_THRESHOLD*100:.1f}%)")
         return len(enemies) > 0
 
     def find_first(self, preds, cls_name):
@@ -400,9 +536,72 @@ class GameBot:
         except Exception as e:
             logger.error(f"Failed to send special item notification: {e}")
 
+    # ---------- Discord webhook ----------
+    def send_discord_chest_notification(self, is_special, has_legendary, has_fame, ss_obj):
+        """Send chest screenshot to Discord webhook"""
+        if not DISCORD_WEBHOOK_URL:
+            return
+            
+        try:
+            # Prepare message content
+            if is_special or ss_obj:
+                items = []
+                if has_legendary:
+                    items.append("Legendary")
+                if has_fame:
+                    items.append("Fame")
+                if ss_obj:
+                    items.append("SS")
+                content = f"🎉 **SPECIAL CHEST FOUND!** 🎉\nItems: {', '.join(items)}"
+                color = 0x00FF00  # Green for special
+            else:
+                content = "📦 Chest opened (no special items)"
+                color = 0x808080  # Gray for normal
+            
+            # Read the labeled screenshot
+            with open(LABELED_FILENAME, 'rb') as f:
+                files = {'file': (f'chest_{time.strftime("%Y%m%d_%H%M%S")}.png', f, 'image/png')}
+                
+                # Create embed
+                embed = {
+                    "title": "Tlopo AutoFarm - Chest Detection",
+                    "description": content,
+                    "color": color,
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "image": {"url": f"attachment://chest_{time.strftime('%Y%m%d_%H%M%S')}.png"},
+                    "footer": {"text": f"Bosses: {self.state['bosses_defeated']} | Chests: {self.state['chests_opened']}"}
+                }
+                
+                payload = {"embeds": [embed]}
+                
+                # Send to Discord
+                response = requests.post(
+                    DISCORD_WEBHOOK_URL,
+                    data={"payload_json": json.dumps(payload)},
+                    files=files,
+                    timeout=10
+                )
+                
+                if response.status_code == 204:
+                    logger.info("Discord notification sent successfully")
+                else:
+                    logger.warning(f"Discord webhook failed: {response.status_code}")
+                    
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification: {e}")
+
     # ---------- Main loop ----------
     def run(self):
         logger.info("Starting bot. Press 'q' to quit.")
+        logger.info(f"Inference mode: {INFERENCE_MODE} (resolved: {self.resolved_mode})")  # NEW
+        if self.resolved_mode == "local":
+            logger.info(f"YOLO device={YOLO_DEVICE}, conf={YOLO_CONF}, imgsz={YOLO_IMGSZ}")  # NEW
+        logger.info(f"Enemy confidence threshold: {ENEMY_CONFIDENCE_THRESHOLD*100:.1f}%")
+        if DISCORD_WEBHOOK_URL:
+            logger.info("Discord webhook configured for chest notifications")
+        else:
+            logger.warning("No Discord webhook URL found in .env")
+            
         # Initial poll
         self.take_screenshot()
         preds = self.analyze()
@@ -475,6 +674,9 @@ class GameBot:
                     # Determine items (using current preds)
                     has_legendary, has_fame, ss_obj = self.find_items(preds)
                     is_special = has_legendary or has_fame
+
+                    # Send Discord notification for ALL chests
+                    self.send_discord_chest_notification(is_special, has_legendary, has_fame, ss_obj)
 
                     # Send notification for special items
                     if is_special or ss_obj:

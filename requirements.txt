@@ -1,0 +1,11 @@
+ultralytics>=8.3.0
+torch           # install CUDA build separately if needed
+torchvision
+torchaudio
+roboflow
+python-dotenv
+pyautogui
+Pillow
+requests
+psutil
+pywin32

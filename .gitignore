@@ -46,5 +46,53 @@ venv/
 ENV/
 env/
 
-screenshots/
-chestScreenshot/
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# VS Code
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Ultralytics/YOLO outputs
+runs/
+
+# Datasets (Roboflow export)
+TlopoGame-2/
+
+# Weights and exported models
+*.pt
+*.onnx
+*.engine
+*.tflite
+*.ncnn
+*.xml
+*.bin
+
+# Bot runtime artifacts
+screenshot.png
+labeled_screenshot.png
+state.json
+chestScreenShot/
+specialNotifications/
+
+# Logs
+*.log
+
+screenshots
