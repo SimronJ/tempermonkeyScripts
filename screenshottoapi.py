@@ -259,6 +259,13 @@ class GameBot:
         logger.info(f"State loaded: bosses_defeated={self.state['bosses_defeated']} chests_opened={self.state['chests_opened']}")
         self.waiting_for_chest = False   # NEW - track if we just defeated an enemy
         self.chest_wait_start = 0.0      # NEW - when we started waiting for chest
+        
+        # NEW: Add missing post-shift variables
+        self.post_shift_wait_time = 0.0    # Track when shift was pressed
+        self.post_shift_delay = 2.0        # Wait 2 seconds after shift
+        self.chest_search_timeout = 5.0    # How long to search for chest after shift delay
+        self.delayed_ctrl_time = 0.0       # Schedule delayed ctrl press
+        
         try:
             pyautogui.PAUSE = 0
         except Exception:
@@ -717,9 +724,9 @@ class GameBot:
     # ---------- Main loop ----------
     def run(self):
         logger.info("Starting bot. Press 'q' to quit.")
-        logger.info(f"Inference mode: {INFERENCE_MODE} (resolved: {self.resolved_mode})")  # NEW
+        logger.info(f"Inference mode: {INFERENCE_MODE} (resolved: {self.resolved_mode})")
         if self.resolved_mode == "local":
-            logger.info(f"YOLO device={YOLO_DEVICE}, conf={YOLO_CONF}, imgsz={YOLO_IMGSZ}")  # NEW
+            logger.info(f"YOLO device={YOLO_DEVICE}, conf={YOLO_CONF}, imgsz={YOLO_IMGSZ}")
         logger.info(f"Enemy confidence threshold: {ENEMY_CONFIDENCE_THRESHOLD*100:.1f}%")
         
         # Initial poll
@@ -727,6 +734,10 @@ class GameBot:
         preds = self.analyze()
         self.last_api_time = time.time()
         self.enemy_active = self.have_enemy(preds)
+        
+        # Initialize variables that will be used throughout the loop
+        loot_btn = None
+        trash_icon = None
 
         while True:
             if keyboard.is_pressed('q'):
@@ -739,35 +750,52 @@ class GameBot:
             if self.enemy_active and (now - self.last_ctrl_time) >= CTRL_PRESS_INTERVAL:
                 self.press_key('ctrl', reason="enemy active - attack")
                 self.last_ctrl_time = now
-                self.last_activity_time = now  # Reset activity timer
+                self.last_activity_time = now
 
-            # PHASE 2: CHECK FOR CHEST TIMEOUT AFTER ENEMY DEFEAT
-            if self.waiting_for_chest and (now - self.chest_wait_start) >= NO_CHEST_WAIT:
-                logger.info(f"No chest found after {NO_CHEST_WAIT}s, pressing Shift")
-                self.press_key('shift', reason="no chest found after enemy defeat")
+            # PHASE 1.5: HANDLE DELAYED CTRL (NEW)
+            if self.delayed_ctrl_time > 0 and now >= self.delayed_ctrl_time:
+                self.press_key('ctrl', reason="post-shift cleanup")
+                self.delayed_ctrl_time = 0.0  # Reset
+
+            # PHASE 2: HANDLE POST-SHIFT DELAY
+            if self.post_shift_wait_time > 0:
+                if (now - self.post_shift_wait_time) >= self.post_shift_delay:
+                    # 2 seconds have passed since shift, now start looking for chest
+                    logger.info("Post-shift delay complete, starting chest search")
+                    self.waiting_for_chest = True
+                    self.chest_wait_start = now
+                    self.post_shift_wait_time = 0.0  # Reset
+
+            # PHASE 3: CHECK FOR CHEST TIMEOUT (ONLY AFTER POST-SHIFT DELAY)
+            if self.waiting_for_chest and (now - self.chest_wait_start) >= self.chest_search_timeout:
+                logger.warning(f"No chest found after {self.chest_search_timeout}s post-shift search")
+                self.press_key('esc', reason="no chest found after search")
+                self.delayed_ctrl_time = now + 2.0  # Schedule ctrl for 2 seconds later
                 self.waiting_for_chest = False
 
-            # PHASE 3: MAIN POLLING LOOP
+            # PHASE 4: MAIN POLLING LOOP
             if (now - self.last_api_time) >= API_POLL_INTERVAL:
                 self.take_screenshot()
                 preds = self.analyze()
                 self.last_api_time = now
 
                 enemy_now = self.have_enemy(preds)
-                
-                # PHASE 4: HANDLE CHEST LOOTING (PRIORITY)
+
+                # PHASE 5: HANDLE CHEST LOOTING (PRIORITY)
                 loot_btn = self.find_first(preds, 'LootTakeButton')
                 trash_icon = self.find_first(preds, 'TrashIcon')
 
                 if loot_btn and trash_icon:
-                    self.last_activity_time = now  # Reset activity timer for chest
+                    self.last_activity_time = now
                     
-                    if enemy_now:
-                        logger.info("PRIORITY: Chest detected while enemy present - handling loot first")
-                    
+                    # Cancel any pending chest search
                     if self.waiting_for_chest:
-                        logger.info("Chest found after enemy defeat")
+                        logger.info("Chest found during search period")
                         self.waiting_for_chest = False
+                    
+                    if self.post_shift_wait_time > 0:
+                        logger.info("Chest found during post-shift delay")
+                        self.post_shift_wait_time = 0.0
 
                     # Log confidences
                     loot_conf = loot_btn.get('confidence', 0.0) * 100
@@ -827,19 +855,15 @@ class GameBot:
                     self.save_state()
                     logger.info(f"Chest handled. Total chests_opened={self.state['chests_opened']}")
 
-                # PHASE 5: HANDLE ENEMY STATE TRANSITIONS
+                # PHASE 6: HANDLE ENEMY STATE TRANSITIONS
                 # Enemy defeated (was active, now not active)
                 if self.enemy_active and not enemy_now:
                     self.state["bosses_defeated"] += 1
                     self.save_state()
                     logger.info(f"Enemy defeated. Total bosses_defeated={self.state['bosses_defeated']}")
                     self.press_key('shift', reason="post-fight cleanup")
-                    
-                    # Start waiting for chest (only if we didn't just process one)
-                    if not (loot_btn and trash_icon):
-                        self.waiting_for_chest = True
-                        self.chest_wait_start = now
-                        logger.info("Waiting for chest to appear...")
+                    self.post_shift_wait_time = now  # Start 2-second delay
+                    logger.info("Post-fight shift pressed, waiting 2 seconds before chest search")
 
                 # Update enemy state
                 if enemy_now:
@@ -847,20 +871,28 @@ class GameBot:
 
                 self.enemy_active = enemy_now
 
-                # PHASE 6: RECOVERY LOGIC (NO ENEMY FOR EXTENDED PERIOD)
-                time_since_activity = now - self.last_activity_time
-                time_since_recovery = now - self.recovery_ctrl_time
-                
-                # If no activity for 30+ seconds and haven't done recovery in last 10 seconds
-                if (not self.enemy_active and 
-                    not (loot_btn and trash_icon) and 
-                    time_since_activity >= 30.0 and 
-                    time_since_recovery >= RECOVERY_WAIT):
-                        
-                    logger.warning(f"No activity for {time_since_activity:.1f}s - attempting recovery")
-                    self.press_key('ctrl', reason="recovery - no activity detected")
-                    self.recovery_ctrl_time = now
-                    logger.info(f"Recovery ctrl sent, waiting {RECOVERY_WAIT}s before next attempt")
+            # PHASE 6: RECOVERY LOGIC (NO ENEMY FOR EXTENDED PERIOD)
+            time_since_activity = now - self.last_activity_time
+            time_since_recovery = now - self.recovery_ctrl_time
+            
+            # If no activity for 30+ seconds and haven't done recovery in last 10 seconds
+            if (not self.enemy_active and 
+                not (loot_btn and trash_icon) and 
+                time_since_activity >= 30.0 and 
+                time_since_recovery >= RECOVERY_WAIT):
+                    
+                logger.warning(f"No activity for {time_since_activity:.1f}s - attempting recovery")
+                self.press_key('ctrl', reason="recovery - no activity detected")
+                self.recovery_ctrl_time = now
+                logger.info(f"Recovery ctrl sent, waiting {RECOVERY_WAIT}s before next attempt")
+
+            # NEW: Check if no enemies detected for 2 minutes
+            if not self.enemy_active and time_since_activity >= 120.0:  # 2 minutes
+                logger.warning("No enemies detected for 2 minutes, pressing Esc")
+                self.press_key('esc', reason="no enemies detected for 2 minutes")
+                time.sleep(2)  # Wait for 2 seconds
+                self.press_key('ctrl', reason="post-2-minutes recovery")
+                self.last_activity_time = now  # Reset activity timer
 
             time.sleep(0.05)  # prevent busy-wait
 
