@@ -14,12 +14,26 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 from ultralytics import YOLO
 import win32gui
-import win32process
+import win32ui
 import win32con
 import win32api
-from io import BytesIO
+import win32process
+from ctypes import windll
 from PIL import Image
+import numpy as np
+import psutil
+import os
 import requests
+import time
+import json
+import logging
+import threading
+import mss  # NEW - add this import
+from plyer import notification
+from dotenv import load_dotenv
+from PIL import Image, ImageDraw, ImageFont
+from ultralytics import YOLO
+from io import BytesIO
 
 # -------------------- Config --------------------
 load_dotenv()
@@ -145,17 +159,16 @@ def _enum_windows_for_pid(pid):  # NEW: enumerate top-level visible windows for 
     result = []
     def callback(hwnd, _):
         if win32gui.IsWindowVisible(hwnd):
-            _, w_pid = win32process.GetWindowThreadProcessId(hwnd)
-            # Ensure top-level (no parent) window
-            if w_pid == pid and win32gui.GetParent(hwnd) == 0:
+            if get_pid_from_hwnd(hwnd) == pid:
                 result.append(hwnd)
+        return True
     win32gui.EnumWindows(callback, None)
     return result
 
 def find_tlopo_hwnd():
     for p in psutil.process_iter(attrs=["pid", "name"]):
         try:
-            if p.info["name"] and p.info["name"].lower() == PROCESS_NAME.lower():
+            if p.info["name"].lower() == PROCESS_NAME.lower():
                 hwnds = _enum_windows_for_pid(p.info["pid"])
                 if hwnds:
                     logger.info(f"Found tlopo.exe window: hwnd={hwnds[0]}")
@@ -427,36 +440,113 @@ class GameBot:
 
     # ---------- Capture TLOPO window ----------
     def capture_tlopo_screenshot(self):
-        """
-        Capture tlopo.exe window if found; otherwise full screen.
-        Returns a PIL.Image and also saves SCREENSHOT_FILENAME.
-        """
+        """Capture the TLOPO window using mss - works across all monitors"""
+        hwnd = self.ensure_hwnd()
+        if not hwnd:
+            logger.error("No hwnd available for screenshot")
+            return None
+
         try:
-            hwnd = self.ensure_hwnd()
-            if hwnd and win32gui.IsWindow(hwnd):
-                left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-                width, height = max(1, right - left), max(1, bottom - top)
-                # Save capture rect for click mapping
-                self.capture_rect = (left, top, width, height)  # NEW
-                img = pyautogui.screenshot(region=(left, top, width, height))
-            else:
-                # Fullscreen fallback
-                img = pyautogui.screenshot()
-                self.capture_rect = (0, 0, img.width, img.height)  # NEW
-            try:
-                img.save(SCREENSHOT_FILENAME)
-            except Exception:
-                pass
-            return img
+            # Get window position (works on any monitor)
+            left, top, right, bot = win32gui.GetWindowRect(hwnd)
+            width = right - left
+            height = bot - top
+            
+            # Store for click mapping
+            self.capture_rect = (left, top, width, height)
+            self._click_origin = (left, top)
+            
+            logger.info(f"Window position: ({left}, {top}) Size: {width}x{height}")
+            
+            # Use mss to capture - handles negative coordinates and multi-monitor
+            with mss.mss() as sct:
+                # Define the region to capture
+                monitor = {
+                    "top": top,
+                    "left": left,
+                    "width": width,
+                    "height": height
+                }
+                
+                # Capture the screen region
+                screenshot = sct.grab(monitor)
+                
+                # Convert to PIL Image
+                img = Image.frombytes(
+                    "RGB",
+                    (screenshot.width, screenshot.height),
+                    screenshot.rgb
+                )
+                
+                logger.info(f"Screenshot captured successfully: {img.size}")
+                return img
+                
         except Exception as e:
-            logger.error(f"capture_tlopo_screenshot failed: {e}")
-            img = pyautogui.screenshot()
-            self.capture_rect = (0, 0, img.width, img.height)  # NEW
-            try:
-                img.save(SCREENSHOT_FILENAME)
-            except Exception:
-                pass
+            logger.error(f"Failed to capture window with mss: {e}")
+            logger.info("Trying fallback method...")
+            return self._capture_fallback_pil(hwnd, left, top, width, height)
+
+    def _capture_fallback_pil(self, hwnd, left, top, width, height):
+        """Fallback using PIL ImageGrab with all_screens"""
+        try:
+            from PIL import ImageGrab
+            
+            # Bring window to front temporarily for better capture
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            time.sleep(0.1)
+            
+            # Use ImageGrab with all_screens=True for multi-monitor support
+            img = ImageGrab.grab(bbox=(left, top, left + width, top + height), all_screens=True)
+            
+            logger.info(f"Fallback PIL capture successful: {img.size}")
             return img
+            
+        except Exception as e:
+            logger.error(f"Fallback PIL capture failed: {e}")
+            return self._capture_fallback_win32(hwnd, left, top, width, height)
+
+    def _capture_fallback_win32(self, hwnd, left, top, width, height):
+        """Last resort fallback using win32 API"""
+        try:
+            # Bring window to foreground
+            win32gui.SetForegroundWindow(hwnd)
+            time.sleep(0.2)
+            
+            hwndDC = win32gui.GetWindowDC(hwnd)
+            mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+            saveDC = mfcDC.CreateCompatibleDC()
+            
+            saveBitMap = win32ui.CreateBitmap()
+            saveBitMap.CreateCompatibleBitmap(mfcDC, width, height)
+            saveDC.SelectObject(saveBitMap)
+            
+            # Try PrintWindow first
+            result = windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 3)
+            
+            if result != 1:
+                # If PrintWindow fails, use BitBlt
+                saveDC.BitBlt((0, 0), (width, height), mfcDC, (0, 0), win32con.SRCCOPY)
+            
+            bmpinfo = saveBitMap.GetInfo()
+            bmpstr = saveBitMap.GetBitmapBits(True)
+            
+            img = Image.frombuffer(
+                'RGB',
+                (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
+                bmpstr, 'raw', 'BGRX', 0, 1
+            )
+            
+            win32gui.DeleteObject(saveBitMap.GetHandle())
+            saveDC.DeleteDC()
+            mfcDC.DeleteDC()
+            win32gui.ReleaseDC(hwnd, hwndDC)
+            
+            logger.info(f"Win32 fallback capture successful")
+            return img
+            
+        except Exception as e:
+            logger.error(f"All capture methods failed: {e}")
+            return None
 
     def take_screenshot(self):
         logger.info("Capturing screenshot")
@@ -740,7 +830,7 @@ class GameBot:
         trash_icon = None
 
         while True:
-            if keyboard.is_pressed('q'):
+            if keyboard.is_pressed('`'):
                 logger.info("Quit requested.")
                 break
 

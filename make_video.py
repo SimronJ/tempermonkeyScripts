@@ -1,5 +1,5 @@
 import moviepy as mp
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import os
 import imageio_ffmpeg
 from pathlib import Path
@@ -8,21 +8,61 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import multiprocessing as mp_proc
 import time
+from datetime import datetime, timedelta
 
 SCREENSHOT_FOLDER = Path("chestScreenShot")
 OUTPUT_VIDEO = "chest_openings.mp4"
-FRAME_DURATION = 1.0  # seconds per image
+FRAME_DURATION = 0.125  # 8x speed: 1/8 = 0.125 seconds per image (8 images per second)
 
-def resize_single_image(args):
-    """Function to resize a single image - for threading"""
-    img_path, target_size, output_path = args
+def add_timestamp_to_image(args):
+    """Function to resize and add timestamp to a single image - for threading"""
+    img_path, target_size, output_path, timestamp = args
     try:
         with Image.open(img_path) as img:
+            # Resize image
             img_resized = img.resize(target_size, Image.Resampling.LANCZOS)
+            
+            # Convert to RGB if needed for drawing
+            if img_resized.mode != 'RGB':
+                img_resized = img_resized.convert('RGB')
+            
+            # Add timestamp
+            draw = ImageDraw.Draw(img_resized)
+            
+            # Try to use a decent font, fallback to default if not available
+            font_size = max(24, target_size[1] // 60)  # Scale font with image size
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                try:
+                    font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+            
+            # Format timestamp
+            time_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Get text size and position
+            bbox = draw.textbbox((0, 0), time_str, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position in top-left with padding
+            x = 20
+            y = 20
+            
+            # Add background rectangle for better readability
+            padding = 10
+            draw.rectangle([x-padding, y-padding, x+text_width+padding, y+text_height+padding], 
+                         fill=(0, 0, 0, 180))  # Semi-transparent black background
+            
+            # Draw the timestamp text in white
+            draw.text((x, y), time_str, font=font, fill=(255, 255, 255))
+            
             img_resized.save(output_path)
         return True
     except Exception as e:
-        print(f"Error resizing {img_path}: {e}")
+        print(f"Error processing {img_path}: {e}")
         return False
 
 def delete_single_file(file_path):
@@ -34,10 +74,9 @@ def delete_single_file(file_path):
         print(f"Failed to delete {file_path.name}: {e}")
         return False
 
-# Function to resize images using threading with progress
-def resize_images_threaded(image_paths, target_size=None):
+def resize_and_timestamp_images(image_paths, target_size=None):
     """
-    Resize all images to the same size using threading with progress updates
+    Resize all images to the same size and add timestamps using threading
     """
     if not image_paths:
         return []
@@ -52,33 +91,41 @@ def resize_images_threaded(image_paths, target_size=None):
     temp_dir = "temp_resized"
     os.makedirs(temp_dir, exist_ok=True)
     
-    # Prepare arguments for threading
+    # Prepare arguments for threading with timestamps
     resize_args = []
     resized_paths = []
+    
+    # Calculate timestamps based on file creation time
+    first_file_time = None
     for i, img_path in enumerate(image_paths):
-        output_path = os.path.join(temp_dir, f"resized_{i}.png")
-        resize_args.append((img_path, target_size, output_path))
+        file_stat = Path(img_path).stat()
+        file_time = datetime.fromtimestamp(file_stat.st_mtime)
+        
+        if first_file_time is None:
+            first_file_time = file_time
+        
+        # Calculate relative time from first image
+        relative_time = first_file_time + timedelta(seconds=i * 1)  # 1 second intervals in real time
+        
+        output_path = os.path.join(temp_dir, f"processed_{i:06d}.png")
+        resize_args.append((img_path, target_size, output_path, relative_time))
         resized_paths.append(output_path)
     
-    print("Resizing images using threading...")
+    print("Processing images (resizing + adding timestamps)...")
     total_images = len(image_paths)
     
-    # Use threading instead of multiprocessing for better Windows compatibility
-    max_workers = min(32, mp_proc.cpu_count() * 2)  # Use more threads since it's I/O bound
+    max_workers = min(32, mp_proc.cpu_count() * 2)
     print(f"Using {max_workers} threads for image processing...")
     
     completed_count = 0
     start_time = time.time()
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        future_to_index = {executor.submit(resize_single_image, arg): i for i, arg in enumerate(resize_args)}
+        future_to_index = {executor.submit(add_timestamp_to_image, arg): i for i, arg in enumerate(resize_args)}
         
-        # Process completed tasks and show progress
         for future in as_completed(future_to_index):
             completed_count += 1
             
-            # Show progress every 50 images or every 10% or on last image
             if (completed_count % 50 == 0 or 
                 completed_count % max(1, total_images // 10) == 0 or 
                 completed_count == total_images):
@@ -94,9 +141,9 @@ def resize_images_threaded(image_paths, target_size=None):
                     print(f"Progress: {completed_count}/{total_images} ({progress_pct:.1f}%) - "
                           f"ETA: {eta_seconds:.0f}s")
     
-    successful_resizes = completed_count  # All completed tasks
+    successful_resizes = completed_count
     elapsed_time = time.time() - start_time
-    print(f"✓ Successfully resized {successful_resizes}/{total_images} images in {elapsed_time:.1f}s!")
+    print(f"✓ Successfully processed {successful_resizes}/{total_images} images in {elapsed_time:.1f}s!")
     
     return resized_paths, temp_dir
 
@@ -122,6 +169,58 @@ def get_video_codec():
     print("No GPU acceleration available - using CPU encoding")
     return 'libx264'
 
+def combine_videos(new_video_path, existing_video_path):
+    """Combine new video with existing video"""
+    print(f"Combining with existing video: {existing_video_path}")
+    
+    try:
+        # Load both videos
+        existing_clip = mp.VideoFileClip(existing_video_path)
+        new_clip = mp.VideoFileClip(new_video_path)
+        
+        # Concatenate videos
+        combined_clip = mp.concatenate_videoclips([existing_clip, new_clip])
+        
+        # Create temporary combined video
+        temp_combined = "temp_combined.mp4"
+        codec = get_video_codec()
+        
+        if codec == 'libx264':
+            combined_clip.write_videofile(
+                temp_combined,
+                codec=codec,
+                audio=False,
+                preset="medium",
+                threads=mp_proc.cpu_count(),
+                bitrate="2000k"  # Compressed bitrate
+            )
+        else:
+            combined_clip.write_videofile(
+                temp_combined,
+                codec=codec,
+                audio=False,
+                ffmpeg_params=['-preset', 'medium', '-crf', '28', '-b:v', '2000k']  # More compressed
+            )
+        
+        # Close clips to free memory
+        existing_clip.close()
+        new_clip.close()
+        combined_clip.close()
+        
+        # Replace original with combined
+        shutil.move(temp_combined, existing_video_path)
+        
+        # Remove the new video file since it's now part of combined
+        if os.path.exists(new_video_path):
+            os.remove(new_video_path)
+            
+        print(f"✓ Videos combined successfully")
+        return existing_video_path
+        
+    except Exception as e:
+        print(f"Error combining videos: {e}")
+        return new_video_path
+
 def main():
     if not SCREENSHOT_FOLDER.is_dir():
         print(f"Folder not found: {SCREENSHOT_FOLDER.resolve()}")
@@ -134,65 +233,83 @@ def main():
         sys.exit(1)
 
     print(f"Found {len(files)} images to process...")
+    print(f"Video will be 8x speed ({len(files) * FRAME_DURATION:.1f}s total duration)")
 
     image_paths = [str(p) for p in files]
     durations = [FRAME_DURATION] * len(image_paths)
 
-    # Resize images before creating clip
-    resized_image_paths, temp_dir = resize_images_threaded(image_paths)
+    # Process images (resize + timestamp)
+    processed_image_paths, temp_dir = resize_and_timestamp_images(image_paths)
 
     try:
         print("Creating video clip...")
-        clip = mp.ImageSequenceClip(resized_image_paths, durations=durations)
+        clip = mp.ImageSequenceClip(processed_image_paths, durations=durations)
 
         fps = max(1, int(round(1.0 / FRAME_DURATION)))
         os.environ.setdefault("IMAGEIO_FFMPEG_EXE", imageio_ffmpeg.get_ffmpeg_exe())
 
-        # Get optimal codec
         codec = get_video_codec()
         
-        print(f"Rendering video with {codec} codec at {fps} FPS... This may take a while...")
+        print(f"Rendering 8x speed video with {codec} codec at {fps} FPS...")
         video_start_time = time.time()
         
-        # Optimized encoding parameters
+        # Check if video already exists
+        final_video_path = OUTPUT_VIDEO
+        if os.path.exists(OUTPUT_VIDEO):
+            # Create new video with temporary name first
+            temp_video = "temp_new_video.mp4"
+            output_path = temp_video
+        else:
+            output_path = OUTPUT_VIDEO
+        
+        # Render with compression
         if codec == 'libx264':
-            # CPU encoding - use all cores
             clip.write_videofile(
-                OUTPUT_VIDEO,
+                output_path,
                 codec=codec,
                 audio=False,
                 fps=fps,
-                preset="faster",  # Faster preset for CPU
-                threads=mp_proc.cpu_count()
+                preset="medium",  # Better compression
+                threads=mp_proc.cpu_count(),
+                bitrate="2000k"  # Compressed bitrate (2 Mbps)
             )
         else:
-            # GPU encoding - different parameters
             clip.write_videofile(
-                OUTPUT_VIDEO,
+                output_path,
                 codec=codec,
                 audio=False,
                 fps=fps,
-                ffmpeg_params=['-preset', 'fast', '-crf', '23']  # GPU-specific params
+                ffmpeg_params=['-preset', 'medium', '-crf', '28', '-b:v', '2000k']  # More compressed
             )
 
+        # Close the clip to free memory
+        clip.close()
+
         video_elapsed = time.time() - video_start_time
-        print(f"✓ Video saved as {OUTPUT_VIDEO} from {len(image_paths)} frames in {video_elapsed:.1f}s")
+        print(f"✓ Video rendered in {video_elapsed:.1f}s")
         
-        # Delete all original images using threading for I/O operations
-        print("Cleaning up original images using threading...")
+        # Combine with existing video if it exists
+        if os.path.exists(OUTPUT_VIDEO) and output_path != OUTPUT_VIDEO:
+            final_video_path = combine_videos(output_path, OUTPUT_VIDEO)
+        else:
+            final_video_path = output_path
+        
+        # Get final file size
+        file_size_mb = os.path.getsize(final_video_path) / (1024 * 1024)
+        print(f"✓ Final video: {final_video_path} ({file_size_mb:.1f} MB)")
+        
+        # Delete all original images using threading
+        print("Cleaning up original images...")
         cleanup_start_time = time.time()
         
         with ThreadPoolExecutor(max_workers=min(32, len(files))) as executor:
-            # Submit all deletion tasks
             future_to_file = {executor.submit(delete_single_file, file_path): file_path for file_path in files}
             deleted_count = 0
             
-            # Process completed deletions with progress
             for future in as_completed(future_to_file):
                 if future.result():
                     deleted_count += 1
                 
-                # Show progress every 100 deletions or every 20%
                 if (deleted_count % 100 == 0 or 
                     deleted_count % max(1, len(files) // 5) == 0 or 
                     deleted_count == len(files)):
@@ -210,7 +327,11 @@ def main():
         print("Cleaning up temporary files...")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
-            print("✓ Temporary files cleaned up")
+        # Clean up any leftover temp files
+        for temp_file in ["temp_new_video.mp4", "temp_combined.mp4"]:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        print("✓ Temporary files cleaned up")
 
     print("Video creation complete!")
 
